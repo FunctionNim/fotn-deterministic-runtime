@@ -8,7 +8,7 @@ import {
   SequenceNumber,
   RuntimeTick,
   EventId
-} from "../contracts/runtime-contracts"
+} from "../contracts/runtime-contracts.js"
 
 // =====================================================
 // EVENT SEQUENCER

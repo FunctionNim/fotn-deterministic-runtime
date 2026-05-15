@@ -11,11 +11,11 @@ import {
   AuditSignature,
   RuntimeTick,
   SequenceNumber
-} from "../contracts/runtime-contracts"
+} from "../contracts/runtime-contracts.js"
 
 import {
   CanonicalSerializer
-} from "./CanonicalSerializer"
+} from "./CanonicalSerializer.js"
 
 // =====================================================
 // HASH RESULT

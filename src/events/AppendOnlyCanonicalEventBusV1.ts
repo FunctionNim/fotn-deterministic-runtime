@@ -8,12 +8,12 @@ import {
   CanonicalEvent,
   CanonicalEventInput,
   RuntimeState,
-  EventType
-} from "../contracts/runtime-contracts"
+  EventType,
+} from "../contracts/runtime-contracts.js"
 
 import {
   CanonicalHashGenerator
-} from "../serialization/CanonicalHashGenerator"
+} from "../serialization/CanonicalHashGenerator.js"
 
 // =====================================================
 // PROCESSOR CONTRACT
@@ -112,74 +112,60 @@ export class AppendOnlyCanonicalEventBusV1 {
     const preHash =
       CanonicalHashGenerator.generate(
         runtimeState
-      )
-
-    const canonicalEvent:
-      CanonicalEvent = {
-
-      eventId:
-        crypto.randomUUID(),
-
-      eventType:
-        input.eventType,
-
-      sequenceNumber:
-        this.sequenceNumber,
-
-      runtimeTick:
-        this.runtimeTick,
-
-      causalParentEventId:
-        input.causalParentEventId,
-
-      timestampUtc:
-        new Date().toISOString(),
-
-      sourceEntityId:
-        input.sourceEntityId,
-
-      targetEntityIds:
-        input.targetEntityIds,
-
-      payload:
-        input.payload,
-
-      stateBeforeHash:
-        preHash.stateHash,
-
-      stateAfterHash:
-        "",
-
-      auditSignature:
-        "",
-
-      immutabilityLock:
-        true
-    }
-
-    const processors =
-      this.processors.get(
-        canonicalEvent.eventType
-      ) ?? []
-
-    for (const processor of processors) {
-
-      processor.process(
-        canonicalEvent,
-        runtimeState
-      )
-    }
-
+  )
+    
     const postHash =
       CanonicalHashGenerator.generate(
         runtimeState
-      )
+  )
+  
+    const canonicalEvent: CanonicalEvent = {
+      
 
-    canonicalEvent.stateAfterHash =
-      postHash.stateHash
+  eventId:
+    crypto.randomUUID(),
 
-    canonicalEvent.auditSignature =
-      postHash.auditSignature
+  eventType:
+    input.eventType,
+
+  sequenceNumber:
+    this.sequenceNumber,
+
+  runtimeTick:
+    this.runtimeTick,
+
+  causalParentEventId:
+    input.causalParentEventId,
+
+  timestampUtc:
+    new Date().toISOString(),
+
+  sourceEntityId:
+    input.sourceEntityId,
+
+  targetEntityIds:
+    input.targetEntityIds,
+
+  payload:
+    input.payload,
+
+  stateBeforeHash:
+    preHash.stateHash,
+
+  stateAfterHash:
+    postHash.stateHash,
+
+  auditSignature:
+    CanonicalHashGenerator.generateAuditSignature(
+        postHash.stateHash,
+        runtimeState
+),
+
+  immutabilityLock:
+    true
+}
+
+
 
     this.eventLog.push(
       Object.freeze(
