@@ -4,29 +4,16 @@
     "module": "ESNext",
     "moduleResolution": "NodeNext",
 
-    "rootDir": "./src",
-    "outDir": "./dist",
-
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
 
-    "declaration": true,
-    "sourceMap": true,
-
-    "esModuleInterop": false,
-    "forceConsistentCasingInFileNames": true,
-
-    "skipLibCheck": false
+    "rootDir": "./src",
+    "outDir": "./dist"
   },
 
   "include": [
     "src/**/*",
     "tests/**/*"
-  ],
-
-  "exclude": [
-    "node_modules",
-    "dist"
   ]
 }
