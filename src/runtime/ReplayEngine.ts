@@ -2,11 +2,11 @@ import {
   RuntimeState,
   ReplayRecord,
   CanonicalEvent
-} from "../contracts/runtime-contracts"
+} from "../contracts/runtime-contracts.js"
 
 import {
   CanonicalHashGenerator
-} from "../serialization/CanonicalHashGenerator"
+} from "../serialization/CanonicalHashGenerator.js"
 
 export class ReplayEngine {
 
@@ -34,7 +34,10 @@ export class ReplayEngine {
     this.replayCursor += 1
 
   }
+public startReplay(): void {
 
+  this.replayCursor = 0
+}
   public getReplayState():
   RuntimeState {
 

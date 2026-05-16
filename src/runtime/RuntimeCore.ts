@@ -3,11 +3,11 @@ import {
   RuntimeTick,
   SequenceNumber,
   CanonicalEvent
-} from "../contracts/runtime-contracts"
+} from "../contracts/runtime-contracts.js"
 
 import {
   AppendOnlyCanonicalEventBusV1
-} from "../events/AppendOnlyCanonicalEventBusV1"
+} from "../events/AppendOnlyCanonicalEventBusV1.js"
 
 export class RuntimeCore {
 

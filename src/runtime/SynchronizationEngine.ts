@@ -4,11 +4,11 @@ import {
   SynchronizationState,
   RuntimeTick,
   SequenceNumber
-} from "../contracts/runtime-contracts"
+} from "../contracts/runtime-contracts.js"
 
 import {
   CanonicalHashGenerator
-} from "../serialization/CanonicalHashGenerator"
+} from "../serialization/CanonicalHashGenerator.js"
 
 export class SynchronizationEngine {
 

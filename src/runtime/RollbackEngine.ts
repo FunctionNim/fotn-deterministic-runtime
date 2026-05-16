@@ -3,15 +3,15 @@ import {
   RollbackCheckpoint,
   CanonicalEvent,
   RuntimeTick
-} from "../contracts/runtime-contracts"
+} from "../contracts/runtime-contracts.js"
 
 import {
   CanonicalHashGenerator
-} from "../serialization/CanonicalHashGenerator"
+} from "../serialization/CanonicalHashGenerator.js"
 
 import {
   ReplayEngine
-} from "./ReplayEngine"
+} from "./ReplayEngine.js"
 
 export class RollbackEngine {
 

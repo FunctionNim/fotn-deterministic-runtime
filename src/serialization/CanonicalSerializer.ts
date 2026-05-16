@@ -7,7 +7,7 @@ import {
   RuntimeState,
   CanonicalEntity,
   CombatInstance
-} from "../contracts/runtime-contracts"
+} from "../contracts/runtime-contracts.js"
 
 // =====================================================
 // CANONICAL SERIALIZER

@@ -146,3 +146,67 @@ export interface CanonicalEvent<TPayload = unknown> {
   readonly immutabilityLock:
     true
 }
+// =====================================================
+// EVENT INPUT CONTRACT
+// =====================================================
+
+export interface CanonicalEventInput {
+
+  readonly eventType:
+    EventType
+
+  readonly causalParentEventId?:
+    EventId
+
+  readonly sourceEntityId?:
+    EntityId
+
+  readonly targetEntityIds:
+    readonly EntityId[]
+
+  readonly payload:
+    unknown
+}
+export interface SynchronizationState {
+
+  readonly synchronized:
+    boolean
+
+  readonly authoritativeHash:
+    StateHash
+
+  readonly rollbackRequired:
+    boolean
+
+  readonly desyncDetected:
+    boolean
+}
+
+export interface ReplayRecord {
+
+  readonly replayId: string
+
+  readonly eventSequence:
+    readonly CanonicalEvent[]
+
+  readonly finalStateHash:
+    StateHash
+}
+
+export interface RollbackCheckpoint {
+
+  readonly checkpointId:
+    string
+
+  readonly runtimeTick:
+    RuntimeTick
+
+  readonly sequenceNumber:
+    SequenceNumber
+
+  readonly canonicalStateHash:
+    StateHash
+
+  readonly serializedState:
+    string
+}
