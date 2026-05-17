@@ -1,9 +1,12 @@
+using FOTN.Engine.Runtime;
 using FOTN.Engine.State;
 
 namespace FOTN.Engine.Audit;
 
 public sealed class RuntimeStateMutationAudit
 {
+    private readonly DeterministicRuntimeContext _runtime = new();
+
     public MutationAuditRecord Record(
         string beforeHash,
         string afterHash,
@@ -11,12 +14,19 @@ public sealed class RuntimeStateMutationAudit
     {
         return new MutationAuditRecord
         {
-            MutationId = Guid.NewGuid(),
+            MutationId = CreateDeterministicGuid("MUTATION"),
             BeforeHash = beforeHash,
             AfterHash = afterHash,
             MutationType = mutationType,
-            Timestamp = DateTime.UtcNow
+            Timestamp = _runtime.Clock.TickLabel()
         };
+    }
+
+    private Guid CreateDeterministicGuid(string prefix)
+    {
+        var id = _runtime.Ids.Next(prefix).Split('_').Last();
+
+        return Guid.Parse($"00000000-0000-0000-0000-{id.PadLeft(12, '0')}");
     }
 }
 
@@ -30,5 +40,5 @@ public sealed class MutationAuditRecord
 
     public string MutationType { get; init; } = string.Empty;
 
-    public DateTime Timestamp { get; init; }
+    public string Timestamp { get; init; } = string.Empty;
 }
