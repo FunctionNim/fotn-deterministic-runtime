@@ -9,6 +9,7 @@ public sealed class DeterministicStressRunner
     private readonly AuditOrderingVerification _auditOrdering = new();
     private readonly MutationOrderingVerification _mutationOrdering = new();
     private readonly RepeatedBattleSequencingVerification _battleOrdering = new();
+    private readonly ReplayReconstructionVerification _reconstruction = new();
 
     public StressRunResult Execute(int iterations)
     {
@@ -17,12 +18,14 @@ public sealed class DeterministicStressRunner
         var auditOrdering = _auditOrdering.Verify();
         var mutationOrdering = _mutationOrdering.Verify();
         var battleOrdering = _battleOrdering.Verify(iterations);
+        var reconstruction = _reconstruction.Verify();
 
         var stable = replay.FullyStable &&
                      replayOrdering.ReplayFrameOrdered &&
                      auditOrdering.AuditTickOrdered &&
                      mutationOrdering.MutationOrdered &&
-                     battleOrdering.Stable;
+                     battleOrdering.Stable &&
+                     reconstruction.ReconstructionSucceeded;
 
         return new StressRunResult
         {
@@ -34,6 +37,7 @@ public sealed class DeterministicStressRunner
             AuditOrderingStable = auditOrdering.AuditTickOrdered,
             MutationOrderingStable = mutationOrdering.MutationOrdered,
             BattleOrderingStable = battleOrdering.Stable,
+            ReplayReconstructionStable = reconstruction.ReconstructionSucceeded,
             Summary = BuildSummary(iterations, replay.PassedIterations, replay.FailedIterations, stable)
         };
     }
@@ -76,6 +80,8 @@ public sealed class StressRunResult
     public bool MutationOrderingStable { get; init; }
 
     public bool BattleOrderingStable { get; init; }
+
+    public bool ReplayReconstructionStable { get; init; }
 
     public string Summary { get; init; } = string.Empty;
 }
