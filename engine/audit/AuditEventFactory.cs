@@ -5,7 +5,7 @@ namespace FOTN.Engine.State;
 
 public sealed class AuditEventFactory
 {
-    private readonly DeterministicRuntimeContext _runtime = new();
+    private readonly DeterministicRuntimeContext _runtime = DeterministicRuntimeContextRegistry.Shared;
 
     public AuditEvent Create(
         GameState state,
