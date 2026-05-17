@@ -15,8 +15,29 @@ public sealed class DeterministicStressRunner
             Iterations = iterations,
             PassedIterations = result.PassedIterations,
             FailedIterations = result.FailedIterations,
-            FullyStable = result.FullyStable
+            FullyStable = result.FullyStable,
+            Summary = BuildSummary(iterations, result.PassedIterations, result.FailedIterations, result.FullyStable)
         };
+    }
+
+    public IReadOnlyCollection<StressRunResult> ExecutePresetSequence()
+    {
+        return new[]
+        {
+            Execute(10),
+            Execute(25),
+            Execute(50),
+            Execute(100)
+        };
+    }
+
+    private static string BuildSummary(
+        int iterations,
+        int passed,
+        int failed,
+        bool stable)
+    {
+        return $"Stress Run | Iterations: {iterations} | Passed: {passed} | Failed: {failed} | Stable: {stable}";
     }
 }
 
@@ -29,4 +50,6 @@ public sealed class StressRunResult
     public int FailedIterations { get; init; }
 
     public bool FullyStable { get; init; }
+
+    public string Summary { get; init; } = string.Empty;
 }
