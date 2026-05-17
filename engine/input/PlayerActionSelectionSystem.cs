@@ -9,7 +9,7 @@ public sealed class PlayerActionSelectionSystem
     private readonly DeterministicRuntimeContext _runtime;
 
     public PlayerActionSelectionSystem()
-        : this(new DeterministicRuntimeContext())
+        : this(DeterministicRuntimeContextRegistry.Shared)
     {
     }
 
