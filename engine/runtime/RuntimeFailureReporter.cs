@@ -2,7 +2,7 @@ namespace FOTN.Engine.Runtime;
 
 public sealed class RuntimeFailureReporter
 {
-    private readonly DeterministicRuntimeContext _runtime = new();
+    private readonly DeterministicRuntimeContext _runtime = DeterministicRuntimeContextRegistry.Shared;
 
     public RuntimeFailureReport Create(
         string system,
