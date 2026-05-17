@@ -2,6 +2,8 @@ namespace FOTN.Engine.Runtime;
 
 public sealed class RuntimeFailureReporter
 {
+    private readonly DeterministicRuntimeContext _runtime = new();
+
     public RuntimeFailureReport Create(
         string system,
         string error,
@@ -9,12 +11,19 @@ public sealed class RuntimeFailureReporter
     {
         return new RuntimeFailureReport
         {
-            FailureId = Guid.NewGuid(),
+            FailureId = CreateDeterministicGuid("FAIL"),
             System = system,
             Error = error,
-            Tick = tick,
-            Timestamp = DateTime.UtcNow
+            Tick = _runtime.Clock.Advance(),
+            Timestamp = _runtime.Clock.TickLabel()
         };
+    }
+
+    private Guid CreateDeterministicGuid(string prefix)
+    {
+        var id = _runtime.Ids.Next(prefix).Split('_').Last();
+
+        return Guid.Parse($"00000000-0000-0000-0000-{id.PadLeft(12, '0')}");
     }
 }
 
@@ -28,5 +37,5 @@ public sealed class RuntimeFailureReport
 
     public long Tick { get; init; }
 
-    public DateTime Timestamp { get; init; }
+    public string Timestamp { get; init; } = string.Empty;
 }
