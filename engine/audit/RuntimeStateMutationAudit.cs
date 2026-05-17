@@ -5,7 +5,7 @@ namespace FOTN.Engine.Audit;
 
 public sealed class RuntimeStateMutationAudit
 {
-    private readonly DeterministicRuntimeContext _runtime = new();
+    private readonly DeterministicRuntimeContext _runtime = DeterministicRuntimeContextRegistry.Shared;
 
     public MutationAuditRecord Record(
         string beforeHash,
