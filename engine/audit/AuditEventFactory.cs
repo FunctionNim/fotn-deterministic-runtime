@@ -1,9 +1,12 @@
 using FOTN.Engine.Actions;
+using FOTN.Engine.Runtime;
 
 namespace FOTN.Engine.State;
 
 public sealed class AuditEventFactory
 {
+    private readonly DeterministicRuntimeContext _runtime = new();
+
     public AuditEvent Create(
         GameState state,
         ActionIntent intent,
@@ -13,8 +16,8 @@ public sealed class AuditEventFactory
     {
         return new AuditEvent
         {
-            EventId = Guid.NewGuid(),
-            Tick = state.DeterministicTick,
+            EventId = CreateDeterministicGuid("AUDIT"),
+            Tick = _runtime.Clock.Advance(),
             TurnNumber = state.TurnNumber,
             Phase = state.CurrentPhase.ToString(),
             ActorId = intent.ActorId,
@@ -25,5 +28,12 @@ public sealed class AuditEventFactory
             AfterStateHash = afterHash,
             ConsequenceSummary = consequence
         };
+    }
+
+    private Guid CreateDeterministicGuid(string prefix)
+    {
+        var id = _runtime.Ids.Next(prefix).Split('_').Last();
+
+        return Guid.Parse($"00000000-0000-0000-0000-{id.PadLeft(12, '0')}");
     }
 }
