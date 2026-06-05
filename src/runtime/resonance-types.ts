@@ -9,8 +9,12 @@ export enum FunctionType {
   Pink = 'Pink',
   Black = 'Black',
   White = 'White',
+  Orange = 'Orange',
+  Gray = 'Gray',
+  Clay = 'Clay',
+  Yellow = 'Yellow',
+  Prism = 'Prism',
   Bond = 'Bond',
-  Grey = 'Grey',
 }
 
 export enum RelationshipType {
