@@ -1,5 +1,5 @@
-import { CanonicalHashGenerator } from "../serialization/CanonicalHashGenerator";
-import { ReplayEngine } from "./ReplayEngine";
+import { CanonicalHashGenerator } from "../serialization/CanonicalHashGenerator.js";
+import { ReplayEngine } from "./ReplayEngine.js";
 export class RollbackEngine {
     checkpoints = [];
     rollbackActive = false;

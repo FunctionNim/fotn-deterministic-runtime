@@ -1,4 +1,4 @@
-import { AppendOnlyCanonicalEventBusV1 } from "../events/AppendOnlyCanonicalEventBusV1";
+import { AppendOnlyCanonicalEventBusV1 } from "../events/AppendOnlyCanonicalEventBusV1.js";
 export class RuntimeCore {
     runtimeState;
     runtimeActive = false;

@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { CanonicalHashGenerator } from "../serialization/CanonicalHashGenerator";
+import { CanonicalHashGenerator } from "../serialization/CanonicalHashGenerator.js";
 // =====================================================
 // EVENT BUS
 // =====================================================
@@ -39,6 +39,7 @@ export class AppendOnlyCanonicalEventBusV1 {
     appendEvent(input, runtimeState) {
         this.sequenceNumber += 1;
         const preHash = CanonicalHashGenerator.generate(runtimeState);
+        const postHash = CanonicalHashGenerator.generate(runtimeState);
         const canonicalEvent = {
             eventId: crypto.randomUUID(),
             eventType: input.eventType,
@@ -50,19 +51,10 @@ export class AppendOnlyCanonicalEventBusV1 {
             targetEntityIds: input.targetEntityIds,
             payload: input.payload,
             stateBeforeHash: preHash.stateHash,
-            stateAfterHash: "",
-            auditSignature: "",
+            stateAfterHash: postHash.stateHash,
+            auditSignature: CanonicalHashGenerator.generateAuditSignature(postHash.stateHash, runtimeState),
             immutabilityLock: true
         };
-        const processors = this.processors.get(canonicalEvent.eventType) ?? [];
-        for (const processor of processors) {
-            processor.process(canonicalEvent, runtimeState);
-        }
-        const postHash = CanonicalHashGenerator.generate(runtimeState);
-        canonicalEvent.stateAfterHash =
-            postHash.stateHash;
-        canonicalEvent.auditSignature =
-            postHash.auditSignature;
         this.eventLog.push(Object.freeze(canonicalEvent));
         return canonicalEvent;
     }

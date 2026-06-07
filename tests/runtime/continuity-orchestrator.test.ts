@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ContinuityEventOrchestrator,
   ContinuityRuntimeState,
+  EmotionalTrend,
   EventType,
   ResonanceType,
 } from '../../src/runtime/index.js';
@@ -23,7 +24,7 @@ function createRuntimeState(): ContinuityRuntimeState {
           curiosity: 0.5,
           isolation: 0.1,
           connection: 0.7,
-          currentTrend: 'Settling',
+          currentTrend: EmotionalTrend.Settling,
         },
         restorationProgress: 0.3,
         memoryPressure: 0.1,

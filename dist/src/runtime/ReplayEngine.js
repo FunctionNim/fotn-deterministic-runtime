@@ -1,4 +1,4 @@
-import { CanonicalHashGenerator } from "../serialization/CanonicalHashGenerator";
+import { CanonicalHashGenerator } from "../serialization/CanonicalHashGenerator.js";
 export class ReplayEngine {
     replayState;
     replayCursor = 0;
@@ -10,6 +10,9 @@ export class ReplayEngine {
     }
     applyEvent(event) {
         this.replayCursor += 1;
+    }
+    startReplay() {
+        this.replayCursor = 0;
     }
     getReplayState() {
         return this.replayState;

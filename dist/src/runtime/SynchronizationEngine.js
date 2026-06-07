@@ -1,4 +1,4 @@
-import { CanonicalHashGenerator } from "../serialization/CanonicalHashGenerator";
+import { CanonicalHashGenerator } from "../serialization/CanonicalHashGenerator.js";
 export class SynchronizationEngine {
     authoritativeHash = "";
     authoritativeTick = 0;

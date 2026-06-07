@@ -3,7 +3,7 @@
 // FUNCTIONS OF THE NOTHING
 // =====================================================
 import crypto from "crypto";
-import { CanonicalSerializer } from "./CanonicalSerializer";
+import { CanonicalSerializer } from "./CanonicalSerializer.js";
 // =====================================================
 // CANONICAL HASH GENERATOR
 // =====================================================

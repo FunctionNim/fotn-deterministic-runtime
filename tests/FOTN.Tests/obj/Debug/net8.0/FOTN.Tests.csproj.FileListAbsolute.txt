@@ -1,0 +1,16 @@
+/home/runner/workspace/tests/FOTN.Tests/bin/Debug/net8.0/FOTN.Tests.deps.json
+/home/runner/workspace/tests/FOTN.Tests/bin/Debug/net8.0/FOTN.Tests.dll
+/home/runner/workspace/tests/FOTN.Tests/bin/Debug/net8.0/FOTN.Tests.pdb
+/home/runner/workspace/tests/FOTN.Tests/bin/Debug/net8.0/FOTN.Engine.dll
+/home/runner/workspace/tests/FOTN.Tests/bin/Debug/net8.0/FOTN.Engine.pdb
+/home/runner/workspace/tests/FOTN.Tests/obj/Debug/net8.0/FOTN.Tests.csproj.AssemblyReference.cache
+/home/runner/workspace/tests/FOTN.Tests/obj/Debug/net8.0/FOTN.Tests.GeneratedMSBuildEditorConfig.editorconfig
+/home/runner/workspace/tests/FOTN.Tests/obj/Debug/net8.0/FOTN.Tests.AssemblyInfoInputs.cache
+/home/runner/workspace/tests/FOTN.Tests/obj/Debug/net8.0/FOTN.Tests.AssemblyInfo.cs
+/home/runner/workspace/tests/FOTN.Tests/obj/Debug/net8.0/FOTN.Tests.csproj.CoreCompileInputs.cache
+/home/runner/workspace/tests/FOTN.Tests/obj/Debug/net8.0/FOTN.Tests.sourcelink.json
+/home/runner/workspace/tests/FOTN.Tests/obj/Debug/net8.0/FOTN.Tests.csproj.Up2Date
+/home/runner/workspace/tests/FOTN.Tests/obj/Debug/net8.0/FOTN.Tests.dll
+/home/runner/workspace/tests/FOTN.Tests/obj/Debug/net8.0/refint/FOTN.Tests.dll
+/home/runner/workspace/tests/FOTN.Tests/obj/Debug/net8.0/FOTN.Tests.pdb
+/home/runner/workspace/tests/FOTN.Tests/obj/Debug/net8.0/ref/FOTN.Tests.dll
