@@ -204,8 +204,8 @@ describe('R17 Turn Pipeline — Scenario Registry integration', () => {
     expect(fromRegistry.signature.combinedHash).toBe(direct.signature.combinedHash);
   });
 
-  it('registry now contains 7 scenarios total', () => {
-    expect(getAllScenarioIds().length).toBe(7);
+  it('registry now contains 8 scenarios total', () => {
+    expect(getAllScenarioIds().length).toBe(8);
   });
 
 });

@@ -45,8 +45,8 @@ describe('R20 Recovery — Scenario Registry integration', () => {
     expect(getAllScenarioIds()).toContain(SCENARIO_FAILURE_THEN_CLEAN_RECOVERY);
   });
 
-  it('registry now contains 7 scenarios', () => {
-    expect(getAllScenarioIds().length).toBe(7);
+  it('registry now contains 8 scenarios', () => {
+    expect(getAllScenarioIds().length).toBe(8);
   });
 
   it('lookupScenario returns correct metadata', () => {

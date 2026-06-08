@@ -200,8 +200,8 @@ describe('R19 Failure Guard — Scenario Registry integration', () => {
     expect(getAllScenarioIds()).toContain(SCENARIO_INVALID_PHASE_ORDER);
   });
 
-  it('registry now contains 7 scenarios', () => {
-    expect(getAllScenarioIds().length).toBe(7);
+  it('registry now contains 8 scenarios', () => {
+    expect(getAllScenarioIds().length).toBe(8);
   });
 
   it('lookupScenario returns correct metadata for the failure scenario', () => {

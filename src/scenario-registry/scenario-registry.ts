@@ -33,6 +33,11 @@ import {
   SCENARIO_FAILURE_THEN_CLEAN_RECOVERY,
 } from '../turn-pipeline/turn-pipeline.js';
 
+import {
+  persistedCleanTurnScenario,
+  SCENARIO_PERSISTED_CLEAN_TURN,
+} from '../turn-persistence/turn-persistence.js';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 /** How a scenario interacts with the memory layer. */
@@ -185,6 +190,21 @@ register({
   expectedActionCount: 9,
   memoryBehavior: 'none',
   runner: failureThenCleanRecoveryScenario,
+});
+
+register({
+  id: SCENARIO_PERSISTED_CLEAN_TURN,
+  title: 'Turn Pipeline — Persisted Clean Turn (persistence snapshot)',
+  phase: 'turn-pipeline',
+  sourceDomain: 'turn-persistence',
+  description:
+    'Runs firstCleanTurnScenario, serializes the result to a TurnPersistenceSnapshot ' +
+    '(schemaVersion v1), restores it, and rebuilds a ReplayResult from the restored data. ' +
+    'Proves serialization + restoration is a lossless round-trip: restored auditTrail equals ' +
+    'the original, rebuilt combinedHash equals the original, deterministicProof remains true.',
+  expectedActionCount: 7,
+  memoryBehavior: 'none',
+  runner: persistedCleanTurnScenario,
 });
 
 // Freeze the registry after population so no code can add or remove entries

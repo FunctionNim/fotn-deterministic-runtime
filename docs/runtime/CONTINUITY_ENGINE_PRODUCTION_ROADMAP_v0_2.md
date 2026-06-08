@@ -297,6 +297,50 @@ paths, and shape assertions.
 
 ---
 
+## R21 — Turn Phase Persistence Snapshot (implemented)
+
+Proves that a completed turn pipeline result can be serialized, restored,
+and replayed without changing final state, audit trail, runtime signature,
+or recovery safety.
+
+**New module:** `src/turn-persistence/turn-persistence.ts`
+
+**Types:**
+- `TurnPersistenceSnapshot` — stable structured snapshot with `schemaVersion`,
+  `scenarioId`, `phaseOrder`, `finalTurnState`, `auditTrail`, `signature`,
+  `deterministicProof`
+- `PersistedTurnState` — JSON-safe turn state capture
+- `SnapshotSchemaVersion = 'v1'`
+
+**Functions:**
+- `serializeTurnResult(result)` — builds snapshot with alphabetically-sorted
+  keys and returns compact JSON; byte-identical across repeated calls
+- `restoreTurnSnapshot(json)` — parses JSON, validates schemaVersion, returns
+  fully typed `TurnPersistenceSnapshot`; key order in source JSON is irrelevant
+- `persistedCleanTurnScenario()` — runs `firstCleanTurnScenario`, serializes,
+  restores, rebuilds `ReplayResult` from restored data
+
+**Persistence scenario:** `turn-pipeline:persisted-clean-turn`
+- `expectedActionCount: 7`, `memoryBehavior: 'none'`
+- `combinedHash` equals `firstCleanTurnScenario().combinedHash` (lossless round-trip)
+- `auditHash` equals clean-turn `auditHash` (same audit trail)
+
+**What serialization/restoration proves:**
+- Serialization is deterministic (same JSON string on every call)
+- Object key order does not affect restored result (re-stringify with reverse keys → same restoration)
+- Array order is significant (reversed auditTrail ≠ original)
+- Restored signature, auditTrail, and finalState match originals exactly
+- `deterministicProof` remains true after round-trip
+
+**Registry count:** 8 registered scenarios total.
+
+**Tests:** 30 new tests in `tests/turn-persistence/r21-turn-phase-persistence-snapshot.test.ts`
+covering serialization determinism, restoration round-trip, key-order independence,
+array-order significance, `persistedCleanTurnScenario`, Scenario Registry integration,
+isolation (clean-turn and recovery unaffected), and Replay Audit Fixture integration.
+
+---
+
 ## R20 — Turn Phase Recovery Fixture (implemented)
 
 Proves that after a guarded turn phase failure, a fresh valid turn can still
