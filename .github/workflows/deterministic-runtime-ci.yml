@@ -1,5 +1,8 @@
 name: deterministic-runtime-ci
 
+# Complementary .NET-focused gate.
+# Full verification (Node + .NET) is in ci.yml (Verification Gate).
+
 on:
   push:
   pull_request:
@@ -12,16 +15,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET
+      - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: '8.0.x'
 
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore FOTN.DeterministicRuntime.sln
 
       - name: Build
-        run: dotnet build --no-restore
+        run: dotnet build FOTN.DeterministicRuntime.sln --no-restore
 
       - name: Test
-        run: dotnet test --no-build
+        run: dotnet test FOTN.DeterministicRuntime.sln --no-build

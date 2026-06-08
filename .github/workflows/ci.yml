@@ -1,23 +1,29 @@
-name: CI
+name: Verification Gate
+
+# Phase R5 — CI / GitHub Workflow Verification Gate
+#
+# Mirrors the exact lock checks that pass locally in Replit.
+# Golden snapshot (tests/golden/r2-demo-snapshot.json) is committed to source.
+# CI reads and verifies it but NEVER generates or updates it.
+# To update the snapshot intentionally: run `npm run generate-snapshot` locally
+# and commit the result.
 
 on:
   push:
-    branches:
-      - main
   pull_request:
-    branches:
-      - main
 
 jobs:
-  typecheck-and-test:
-    name: Typecheck and test
+
+  # ── TypeScript: build · typecheck · test · demo ──────────────────────────
+  node-verification:
+    name: TypeScript — Build · Test · Demo
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -26,8 +32,37 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build (tsc)
+        run: npm run build
+
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Test
+      - name: Test — 141 checks incl. golden snapshot regression
         run: npm test
+
+      - name: Demo — deterministic sequence proof (both acts)
+        run: npm run demo
+
+  # ── .NET 8: restore · build · test ───────────────────────────────────────
+  dotnet-verification:
+    name: .NET 8 — Build · Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore FOTN.DeterministicRuntime.sln
+
+      - name: Build
+        run: dotnet build FOTN.DeterministicRuntime.sln --no-restore
+
+      - name: Test
+        run: dotnet test FOTN.DeterministicRuntime.sln --no-build
