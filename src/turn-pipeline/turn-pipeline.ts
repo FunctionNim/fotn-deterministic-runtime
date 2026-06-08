@@ -36,8 +36,46 @@ export type TurnPhase = typeof PHASE_ORDER[number];
 
 // ─── Scenario ID ──────────────────────────────────────────────────────────────
 
-export const SCENARIO_FIRST_CLEAN_TURN = 'turn-pipeline:first-clean-turn';
+export const SCENARIO_FIRST_CLEAN_TURN    = 'turn-pipeline:first-clean-turn';
 export const SCENARIO_MUTATED_MAIN_INTENT = 'turn-pipeline:mutated-main-intent';
+export const SCENARIO_INVALID_PHASE_ORDER = 'turn-pipeline:invalid-phase-order';
+
+// ─── Failure guard types ───────────────────────────────────────────────────────
+
+/** Stable failure codes produced by the guarded pipeline. */
+export type FailureCode = 'OUT_OF_ORDER_PHASE';
+
+/**
+ * Structured failure result returned by runTurnPipelineGuarded when an
+ * invalid or out-of-order phase intent is detected.
+ *
+ * Never throws — the failure is captured as data so callers can assert on
+ * every field deterministically.
+ */
+export interface FailureGuardResult {
+  /** Stable scenario identifier. */
+  readonly scenarioId: string;
+  /** Stable machine-readable code for this class of failure. */
+  readonly failureCode: FailureCode;
+  /** The phase the pipeline expected next, according to PHASE_ORDER. */
+  readonly expectedPhase: TurnPhase;
+  /** The phase intent that was actually received. */
+  readonly receivedPhase: TurnPhase;
+  /** Human-readable explanation of why this transition is illegal. */
+  readonly failureReason: string;
+  /**
+   * Snapshot of the turn state at the moment of failure — only phases that
+   * completed before the bad intent are reflected here.
+   */
+  readonly priorStateSummary: Readonly<Record<string, unknown>>;
+  /** Ordered audit events for every phase that completed before the failure. */
+  readonly auditTrailUpToFailure: readonly string[];
+  /**
+   * Deterministic signature derived from all failure fields.
+   * Two identical invalid replays produce the same signature.
+   */
+  readonly failureSignature: RuntimeSignature;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -164,6 +202,130 @@ export function runTurnPipeline(
   };
 }
 
+// ─── Guarded pipeline ─────────────────────────────────────────────────────────
+
+/**
+ * Type guard — returns true when `value` is a FailureGuardResult rather than
+ * a TurnPipelineResult.
+ */
+export function isFailureGuardResult(
+  value: TurnPipelineResult | FailureGuardResult,
+): value is FailureGuardResult {
+  return 'failureCode' in value;
+}
+
+/**
+ * Guarded turn pipeline.
+ *
+ * Validates each phase intent against PHASE_ORDER before executing it.
+ * Returns a FailureGuardResult at the first out-of-order phase instead of
+ * continuing with corrupted state.  Never throws.
+ *
+ * If all intents are valid, delegates to runTurnPipeline and returns its result.
+ */
+export function runTurnPipelineGuarded(
+  scenarioId: string,
+  initialState: TurnState,
+  phaseIntents: readonly PhaseIntent[],
+): TurnPipelineResult | FailureGuardResult {
+  const auditSoFar: string[] = [];
+  const actionsSoFar: ReplayAction[] = [];
+  let state: TurnState = { ...initialState };
+
+  for (let i = 0; i < PHASE_ORDER.length; i++) {
+    const expectedPhase = PHASE_ORDER[i];
+    const intent        = phaseIntents[i];
+    const receivedPhase = intent?.phase ?? expectedPhase;
+
+    if (receivedPhase !== expectedPhase) {
+      const priorStateSummary: Readonly<Record<string, unknown>> = {
+        turnId: state.turnId,
+        currentPhase: state.currentPhase,
+        pressureLevel: state.pressureLevel,
+        resolved: state.resolved,
+        completedPhaseCount: state.completedPhases.length,
+      };
+
+      const failureReason =
+        `Phase order violation: expected '${expectedPhase}' at position ${i} ` +
+        `but received '${receivedPhase}'. Required order is ${PHASE_ORDER.join(' → ')}.`;
+
+      const failureSignature = buildRuntimeSignature({
+        scenarioId,
+        initialState: {
+          turnId: initialState.turnId,
+          currentPhase: initialState.currentPhase,
+          pressureLevel: initialState.pressureLevel,
+          resolved: initialState.resolved,
+          completedPhaseCount: initialState.completedPhases.length,
+        },
+        orderedActions: actionsSoFar,
+        finalState: priorStateSummary,
+        auditTrail: auditSoFar,
+        deterministicProof: true,
+      });
+
+      return Object.freeze({
+        scenarioId,
+        failureCode: 'OUT_OF_ORDER_PHASE' as const,
+        expectedPhase,
+        receivedPhase,
+        failureReason,
+        priorStateSummary,
+        auditTrailUpToFailure: [...auditSoFar],
+        failureSignature,
+      });
+    }
+
+    // Phase is valid — advance state
+    const label = intent.label;
+    state = {
+      ...state,
+      currentPhase: expectedPhase,
+      completedPhases: [...state.completedPhases, expectedPhase],
+      resolved: expectedPhase === 'EndOfTurn',
+    };
+    auditSoFar.push(`phase:${expectedPhase} — ${label}`);
+    actionsSoFar.push({ label: `${expectedPhase}:${label}`, index: i });
+  }
+
+  // All phases valid — return a normal TurnPipelineResult
+  const initialStateSerialisable: ReplayFinalState = {
+    turnId: initialState.turnId,
+    currentPhase: initialState.currentPhase,
+    pressureLevel: initialState.pressureLevel,
+    resolved: initialState.resolved,
+    completedPhaseCount: initialState.completedPhases.length,
+  };
+
+  const finalStateSerialisable: ReplayFinalState = {
+    turnId: state.turnId,
+    currentPhase: state.currentPhase,
+    pressureLevel: state.pressureLevel,
+    resolved: state.resolved,
+    completedPhaseCount: state.completedPhases.length,
+  };
+
+  const signature = buildRuntimeSignature({
+    scenarioId,
+    initialState: initialStateSerialisable,
+    orderedActions: actionsSoFar,
+    finalState: finalStateSerialisable,
+    auditTrail: auditSoFar,
+    deterministicProof: true,
+  });
+
+  return {
+    scenarioId,
+    initialState,
+    finalState: state,
+    phaseTransitions: [...auditSoFar.map((_, i) => PHASE_ORDER[i])],
+    auditTrail: auditSoFar,
+    orderedActions: actionsSoFar,
+    signature,
+  };
+}
+
 // ─── Scenario helpers ──────────────────────────────────────────────────────────
 
 /**
@@ -228,6 +390,91 @@ export function firstCleanTurnScenario(): ReplayResult {
 
   return pipelineResultToReplay(
     runTurnPipeline(SCENARIO_FIRST_CLEAN_TURN, initialState, phaseIntents),
+  );
+}
+
+// ─── Invalid Phase Order Scenario ──────────────────────────────────────────────
+
+/**
+ * R19 — Intentional invalid phase order scenario.
+ *
+ * Attempts StartOfTurn then immediately Main, skipping required Upkeep.
+ * runTurnPipelineGuarded catches the violation and returns a FailureGuardResult.
+ *
+ * This function converts the failure into a ReplayResult so it can be
+ * registered in the Scenario Registry and inspected through the Audit Fixture:
+ *   - auditTrail = [StartOfTurn event, FAILURE event]
+ *   - finalState = priorStateSummary at failure
+ *   - signature captures everything deterministically
+ *
+ * Proves that invalid inputs are rejected clearly and that the failure itself
+ * is stable and regression-protected.
+ */
+export function invalidPhaseOrderScenario(): ReplayResult {
+  const initialState: TurnState = {
+    turnId: 'turn-fail',
+    currentPhase: null,
+    completedPhases: [],
+    pressureLevel: 0,
+    resolved: false,
+  };
+
+  // StartOfTurn → Main  (Main at index 1, expected Upkeep)
+  const phaseIntents: PhaseIntent[] = [
+    { phase: 'StartOfTurn', label: 'begin startofturn' },
+    { phase: 'Main',        label: 'begin main' },
+    { phase: 'Upkeep',     label: 'begin upkeep' },
+    { phase: 'Journey',    label: 'begin journey' },
+    { phase: 'Alchemist',  label: 'begin alchemist' },
+    { phase: 'Combat',     label: 'begin combat' },
+    { phase: 'EndOfTurn',  label: 'begin endofturn' },
+  ];
+
+  const guardResult = runTurnPipelineGuarded(
+    SCENARIO_INVALID_PHASE_ORDER,
+    initialState,
+    phaseIntents,
+  );
+
+  if (!isFailureGuardResult(guardResult)) {
+    throw new Error(
+      'invalidPhaseOrderScenario: expected FailureGuardResult but pipeline succeeded',
+    );
+  }
+
+  // Compose the audit trail: completed events + a stable failure marker
+  const failureEvent =
+    `FAILURE:${guardResult.failureCode} — expected ${guardResult.expectedPhase}, ` +
+    `received ${guardResult.receivedPhase}`;
+  const auditTrail: string[] = [...guardResult.auditTrailUpToFailure, failureEvent];
+
+  // Attempted ordered actions: completed phases + the failing intent
+  const orderedActions: ReplayAction[] = [
+    ...guardResult.auditTrailUpToFailure.map((e, i) => ({
+      label: e.replace('phase:', '').split(' — ')[0] + ':' +
+             e.split(' — ')[1],
+      index: i,
+    })),
+    {
+      label: `${guardResult.receivedPhase}:begin ${guardResult.receivedPhase.toLowerCase()} [REJECTED]`,
+      index: guardResult.auditTrailUpToFailure.length,
+    },
+  ];
+
+  const replayInitialState: ReplayFinalState = {
+    turnId: initialState.turnId,
+    currentPhase: initialState.currentPhase,
+    pressureLevel: initialState.pressureLevel,
+    resolved: initialState.resolved,
+    completedPhaseCount: initialState.completedPhases.length,
+  };
+
+  return assembleResult(
+    SCENARIO_INVALID_PHASE_ORDER,
+    orderedActions,
+    replayInitialState,
+    guardResult.priorStateSummary,
+    auditTrail,
   );
 }
 

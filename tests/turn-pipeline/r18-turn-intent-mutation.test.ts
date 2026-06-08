@@ -181,8 +181,8 @@ describe('R18 Mutation Fixture — Scenario Registry integration', () => {
     expect(getAllScenarioIds()).toContain(SCENARIO_MUTATED_MAIN_INTENT);
   });
 
-  it('registry now contains 5 scenarios', () => {
-    expect(getAllScenarioIds().length).toBe(5);
+  it('registry now contains 6 scenarios', () => {
+    expect(getAllScenarioIds().length).toBe(6);
   });
 
   it('lookupScenario returns correct metadata for the mutated scenario', () => {

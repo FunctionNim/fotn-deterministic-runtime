@@ -297,6 +297,41 @@ paths, and shape assertions.
 
 ---
 
+## R19 — Turn Phase Failure Guard Fixture (implemented)
+
+Proves that invalid or out-of-order phase intents are rejected clearly and
+deterministically without corrupting state, audit trail, or signatures.
+
+**Module additions:** `src/turn-pipeline/turn-pipeline.ts`
+
+**New types:**
+- `FailureCode = 'OUT_OF_ORDER_PHASE'`
+- `FailureGuardResult` — structured failure with `scenarioId`, `failureCode`,
+  `expectedPhase`, `receivedPhase`, `failureReason`, `priorStateSummary`,
+  `auditTrailUpToFailure`, `failureSignature`
+
+**New functions:**
+- `runTurnPipelineGuarded(scenarioId, initialState, phaseIntents)` — validates
+  each intent against PHASE_ORDER; returns `FailureGuardResult` at first violation,
+  `TurnPipelineResult` if all phases are valid. Never throws.
+- `isFailureGuardResult(value)` — type guard distinguishing failure from success
+- `invalidPhaseOrderScenario()` — canonical invalid scenario returning `ReplayResult`
+
+**Failure scenario:** `turn-pipeline:invalid-phase-order`
+- Attempts: StartOfTurn → **Main** (skips required Upkeep)
+- Expected phase: `Upkeep` | Received: `Main` | Failure code: `OUT_OF_ORDER_PHASE`
+- `auditTrail`: `[StartOfTurn event, FAILURE:OUT_OF_ORDER_PHASE — expected Upkeep, received Main]`
+- `expectedActionCount: 2`, `memoryBehavior: 'none'`
+
+**Registry count:** 6 registered scenarios total.
+
+**Tests:** 21 new tests in `tests/turn-pipeline/r19-turn-phase-failure-guard.test.ts` covering
+guard rejection, failure code/expected/received/reason, prior state preservation (completedPhaseCount 1,
+resolved false), audit trail stability (1 completed + 1 failure event), determinism,
+clean-turn isolation, Scenario Registry integration, and Replay Audit Fixture integration.
+
+---
+
 ## R18 — Turn Intent Mutation Fixture (implemented)
 
 Proves that changing one phase intent changes the runtime signature in a

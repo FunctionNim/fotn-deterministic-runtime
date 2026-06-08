@@ -25,8 +25,10 @@ import {
 import {
   firstCleanTurnScenario,
   mutatedMainIntentScenario,
+  invalidPhaseOrderScenario,
   SCENARIO_FIRST_CLEAN_TURN,
   SCENARIO_MUTATED_MAIN_INTENT,
+  SCENARIO_INVALID_PHASE_ORDER,
 } from '../turn-pipeline/turn-pipeline.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -148,6 +150,22 @@ register({
   expectedActionCount: 7,
   memoryBehavior: 'none',
   runner: mutatedMainIntentScenario,
+});
+
+register({
+  id: SCENARIO_INVALID_PHASE_ORDER,
+  title: 'Turn Pipeline — Invalid Phase Order (failure guard)',
+  phase: 'turn-pipeline',
+  sourceDomain: 'turn-pipeline',
+  description:
+    'Attempts StartOfTurn then immediately Main, skipping required Upkeep. ' +
+    'runTurnPipelineGuarded catches the violation and returns a FailureGuardResult ' +
+    'with failureCode OUT_OF_ORDER_PHASE. Converted to a ReplayResult with ' +
+    'auditTrail = [StartOfTurn event, FAILURE event] so the failure is ' +
+    'regression-protected through the standard Audit Fixture.',
+  expectedActionCount: 2,
+  memoryBehavior: 'none',
+  runner: invalidPhaseOrderScenario,
 });
 
 // Freeze the registry after population so no code can add or remove entries
