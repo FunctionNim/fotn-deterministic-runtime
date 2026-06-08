@@ -1,0 +1,16 @@
+# TypeScript build output
+dist/
+
+# Node
+node_modules/
+
+# .NET build artifacts
+bin/
+obj/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.user
+.idea/
+.vscode/
