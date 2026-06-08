@@ -1,0 +1,70 @@
+Create R13 — Runtime Signature System.
+
+Goal:
+Formalize deterministic signatures into a reusable runtime subsystem instead of keeping signatures only inside replay verification.
+
+Purpose:
+Future scenarios, fixtures, snapshots, replay verification, and CI should compare behavior through one canonical signature format.
+
+Current known state:
+
+* R12 Replay Verification Domain is complete and pushed.
+* Replay scenarios include:
+    * act-i:stone-room
+    * act-ii:first-continuation-loop
+    * act-i:stone-room:forced-failure
+* R12 proves same scenario replayed twice produces identical final state, audit trail, and deterministic signature.
+* R13 was defined in docs/runtime-roadmap.md.
+* The repository is a TypeScript + C# runtime/library.
+* Do not add a frontend web app.
+
+Requirements:
+
+1. Add a reusable runtime signature module in TypeScript.
+2. The signature module should expose a stable deterministic signature shape.
+3. Include fields such as:
+    * phase or signature version
+    * scenario id
+    * initial state hash
+    * input event/action hash
+    * final state hash
+    * audit hash
+    * memory hash, if applicable
+    * determinism proof flag
+4. Use stable canonical serialization before hashing.
+5. Object key order must not affect signature output.
+6. Array order must remain significant.
+7. The signature should not depend on console formatting.
+8. Refactor R12 replay verification to use this shared signature module.
+9. Add tests proving:
+    * identical structured input creates identical signature
+    * object key order does not change signature
+    * array order does change signature
+    * changed final state changes signature
+    * changed audit trail changes signature
+    * replay verification still produces stable signatures for existing R12 scenarios
+10. Do not auto-update golden snapshots.
+11. Do not break npm run demo.
+12. Update docs/runtime-roadmap.md or README.md with a short R13 note.
+13. After implementation, run:
+
+* npm run build
+* npm test
+* dotnet build
+* npm run demo
+
+14. Commit and push the R13 work to main.
+15. Confirm GitHub Actions starts.
+16. If possible, confirm GitHub Actions passes.
+
+After completion, summarize:
+
+* files added or changed
+* signature module path
+* canonical signature fields
+* tests added
+* test count change
+* local verification results
+* commit SHA/message
+* push status
+* GitHub Actions status

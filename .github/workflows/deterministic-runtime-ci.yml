@@ -39,3 +39,5 @@ jobs:
 
       - name: Golden snapshot guard
         uses: ./.github/actions/snapshot-guard
+        with:
+          snapshot-dir: tests/golden

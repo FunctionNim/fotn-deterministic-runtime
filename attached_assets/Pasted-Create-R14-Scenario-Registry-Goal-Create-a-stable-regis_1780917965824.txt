@@ -1,0 +1,82 @@
+Create R14 — Scenario Registry.
+
+Goal:
+Create a stable registry of named deterministic scenarios so replay tests, demos, snapshots, and future tools can reference scenarios by ID instead of scattered imports.
+
+Purpose:
+Move from ad hoc scenario imports to a central scenario registry that can be safely extended.
+
+Current known state:
+
+* R13 Runtime Signature System is complete.
+* Commit 793f9332 passed both GitHub Actions workflows.
+* Canonical RuntimeSignature fields exist:
+    * signatureVersion
+    * scenarioId
+    * actionCount
+    * initialStateHash
+    * inputHash
+    * finalStateHash
+    * auditHash
+    * memoryHash
+    * deterministicProof
+    * combinedHash
+* Replay scenarios currently include:
+    * act-i:stone-room
+    * act-ii:first-continuation-loop
+    * act-i:stone-room:forced-failure
+* The repository is a TypeScript + C# runtime/library.
+* Do not add a frontend web app.
+
+Requirements:
+
+1. Add a scenario registry module in TypeScript.
+2. The registry should expose stable scenario IDs and scenario metadata.
+3. Each registered scenario should include:
+    * scenario id
+    * title
+    * phase / act
+    * source domain
+    * description
+    * expected action count
+    * expected memory behavior if applicable
+    * replay runner or factory reference
+4. Register the existing R12 scenarios:
+    * act-i:stone-room
+    * act-ii:first-continuation-loop
+    * act-i:stone-room:forced-failure
+5. Refactor replay tests to obtain scenarios through the registry where appropriate.
+6. Add tests proving:
+    * all expected scenario IDs are registered
+    * scenario IDs are unique
+    * lookup by scenario ID works
+    * unknown scenario ID returns a safe result or throws a clear error
+    * registered scenario metadata matches expected values
+    * replay still works through registry lookup
+    * signature scenarioId matches registry scenario id
+7. Keep the registry deterministic and side-effect free.
+8. Do not auto-update golden snapshots.
+9. Do not break npm run demo.
+10. Update docs/runtime-roadmap.md or README.md with a short R14 note.
+11. After implementation, run:
+
+* npm run build
+* npm test
+* dotnet build
+* npm run demo
+
+12. Commit and push R14 to main.
+13. Confirm GitHub Actions starts.
+14. If possible, confirm GitHub Actions passes.
+
+After completion, summarize:
+
+* files added or changed
+* registry module path
+* registered scenario IDs
+* tests added
+* test count change
+* local verification results
+* commit SHA/message
+* push status
+* GitHub Actions status

@@ -297,6 +297,37 @@ paths, and shape assertions.
 
 ---
 
+## R14 — Scenario Registry (implemented)
+
+Central, stable registry of named deterministic scenarios so replay tests,
+demos, snapshots, and future tooling can reference scenarios by ID instead
+of maintaining scattered imports.
+
+**Module:** `src/scenario-registry/scenario-registry.ts`
+
+**Registered scenarios:**
+- `act-i:stone-room:that-would-not-fall` — 17 actions, `memoryBehavior: none`
+- `act-i:stone-room:forced-failure` — 2 actions (mutation probe), `memoryBehavior: none`
+- `act-ii:first-continuation-loop` — 7 steps, `memoryBehavior: persisted`
+
+**Each `ScenarioMeta` record contains:** `id`, `title`, `phase`, `sourceDomain`,
+`description`, `expectedActionCount`, `memoryBehavior`, `runner` (factory fn).
+
+**Public API:**
+- `lookupScenario(id)` — throws a descriptive error for unknown IDs
+- `findScenario(id)` — safe lookup, returns `undefined` for unknown IDs
+- `getAllScenarioIds()` — sorted, deterministic
+- `getAllScenarios()` — sorted by ID
+- `runScenario(id)` — convenience: lookup + run
+
+**Guarantees:** registry is frozen after population (no runtime mutation),
+`runner()` is deterministic (two calls → identical `ReplayResult`),
+no side effects on import.
+
+**Tests:** 17 new tests in `tests/scenario-registry/r14-scenario-registry.test.ts`.
+
+---
+
 ## R12 — Replay Verification Domain (implemented)
 
 Proves that a known initial state + a known ordered action sequence can be

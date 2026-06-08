@@ -1,8 +1,23 @@
 name: Snapshot Guard
 description: >
-  Verifies that the golden snapshot file exists and was not modified during CI.
-  Fails loudly if the snapshot directory or file is missing, or if any file
-  under tests/golden/ was written or modified by the current CI run.
+  Verifies that golden snapshot files exist and were not modified during CI.
+  Accepts either a single snapshot-path (legacy) or a snapshot-dir to
+  automatically discover and guard every file in the directory.
+  Fails loudly if any snapshot file is missing, or if any was written or
+  modified by the current CI run.
+
+inputs:
+  snapshot-path:
+    description: 'Path to a single golden snapshot file to guard (legacy mode).'
+    required: false
+    default: ''
+  snapshot-dir:
+    description: >
+      Directory to scan for golden snapshot files. All files found under this
+      directory are guarded automatically. Takes precedence over snapshot-path
+      when both are supplied.
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -10,25 +25,79 @@ runs:
     - name: Golden snapshot existence check
       shell: bash
       run: |
-        if [ ! -d tests/golden ]; then
-          echo "ERROR: tests/golden/ directory is missing."
-          echo "The entire golden snapshot directory has been deleted or was never created."
-          echo "Restore the tests/golden/ directory (including r2-demo-snapshot.json) and commit it before merging."
-          exit 1
-        fi
-        if [ ! -f tests/golden/r2-demo-snapshot.json ]; then
-          echo "ERROR: tests/golden/r2-demo-snapshot.json is missing."
-          echo "The golden snapshot must be committed to source and never deleted or renamed."
-          echo "Restore the file and commit it before merging."
-          exit 1
+        SNAPSHOT_DIR_INPUT="${{ inputs.snapshot-dir }}"
+        SNAPSHOT_FILE_INPUT="${{ inputs.snapshot-path }}"
+
+        if [ -n "$SNAPSHOT_DIR_INPUT" ]; then
+          # Directory mode: guard every file found under the directory
+          if [ ! -d "$SNAPSHOT_DIR_INPUT" ]; then
+            echo "ERROR: $SNAPSHOT_DIR_INPUT directory is missing."
+            echo "The golden snapshot directory has been deleted or was never created."
+            echo "Restore the $SNAPSHOT_DIR_INPUT directory and commit it before merging."
+            exit 1
+          fi
+          FILES=$(find "$SNAPSHOT_DIR_INPUT" -type f | sort)
+          if [ -z "$FILES" ]; then
+            echo "ERROR: No snapshot files found under $SNAPSHOT_DIR_INPUT."
+            echo "The golden snapshot directory exists but is empty."
+            echo "Ensure at least one snapshot file is committed before merging."
+            exit 1
+          fi
+          echo "Snapshot existence check — guarding all files under $SNAPSHOT_DIR_INPUT:"
+          while IFS= read -r FILE; do
+            echo "  checking: $FILE"
+            if [ ! -f "$FILE" ]; then
+              echo "ERROR: $FILE is missing."
+              echo "The golden snapshot must be committed to source and never deleted or renamed."
+              echo "Restore the file and commit it before merging."
+              exit 1
+            fi
+          done <<< "$FILES"
+          echo "All snapshot files present."
+        else
+          # Single-file mode (legacy)
+          SNAPSHOT_FILE="$SNAPSHOT_FILE_INPUT"
+          SNAPSHOT_DIR="$(dirname "$SNAPSHOT_FILE")"
+          if [ ! -d "$SNAPSHOT_DIR" ]; then
+            echo "ERROR: $SNAPSHOT_DIR directory is missing."
+            echo "The golden snapshot directory has been deleted or was never created."
+            echo "Restore the $SNAPSHOT_DIR directory (including $(basename "$SNAPSHOT_FILE")) and commit it before merging."
+            exit 1
+          fi
+          if [ ! -f "$SNAPSHOT_FILE" ]; then
+            echo "ERROR: $SNAPSHOT_FILE is missing."
+            echo "The golden snapshot must be committed to source and never deleted or renamed."
+            echo "Restore the file and commit it before merging."
+            exit 1
+          fi
+          echo "Snapshot file present: $SNAPSHOT_FILE"
         fi
 
     - name: Golden snapshot integrity guard
       shell: bash
       run: |
-        git diff --exit-code tests/golden/ || {
-          echo "ERROR: tests/golden/ was modified during CI."
-          echo "The generate-snapshot script must never run in CI."
-          echo "Run 'npm run generate-snapshot' locally and commit the result."
-          exit 1
-        }
+        SNAPSHOT_DIR_INPUT="${{ inputs.snapshot-dir }}"
+        SNAPSHOT_FILE_INPUT="${{ inputs.snapshot-path }}"
+
+        if [ -n "$SNAPSHOT_DIR_INPUT" ]; then
+          # Directory mode: check the entire directory at once
+          echo "Snapshot integrity guard — checking $SNAPSHOT_DIR_INPUT for CI modifications:"
+          git diff --exit-code "$SNAPSHOT_DIR_INPUT" || {
+            echo ""
+            echo "ERROR: One or more files under $SNAPSHOT_DIR_INPUT were modified during CI."
+            echo "The generate-snapshot script must never run in CI."
+            echo "Run the snapshot generation script locally and commit the result."
+            exit 1
+          }
+          echo "No snapshot files were modified during this CI run."
+        else
+          # Single-file mode (legacy)
+          SNAPSHOT_FILE="$SNAPSHOT_FILE_INPUT"
+          git diff --exit-code "$SNAPSHOT_FILE" || {
+            echo ""
+            echo "ERROR: $SNAPSHOT_FILE was modified during CI."
+            echo "The generate-snapshot script must never run in CI."
+            echo "Run the snapshot generation script locally and commit the result."
+            exit 1
+          }
+        fi
