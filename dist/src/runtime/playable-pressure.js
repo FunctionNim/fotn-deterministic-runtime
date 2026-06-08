@@ -50,6 +50,9 @@ export function createRoomThatWouldNotFall() {
     };
 }
 export function applyStoneRoomAction(room, action) {
+    if (room.phase === 'Resolved' && action.type === 'RecordLedger') {
+        return recordLedger(room);
+    }
     if (room.phase === 'Resolved' || room.phase === 'Failed')
         return room;
     switch (action.type) {
