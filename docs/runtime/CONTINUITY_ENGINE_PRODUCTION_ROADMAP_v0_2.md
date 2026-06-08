@@ -297,6 +297,73 @@ paths, and shape assertions.
 
 ---
 
+## R23 — Turn Phase Snapshot Migration Fixture (implemented)
+
+Proves that older supported snapshot versions can migrate forward safely, while
+unsupported, future, or malformed versions fail deterministically with stable
+error codes.
+
+**Module:** `src/turn-persistence/turn-snapshot-migration.ts`
+
+**Version table:**
+- `v0` — old format (missing `phaseOrder`, `signature`, `deterministicProof`,
+  `finalTurnState.currentPhase`, `finalTurnState.completedPhaseCount`)
+- `v1` — current format (all fields present)
+
+**Migration path:** `v0 → v1` (`migrationApplied: true`); identity path for v1 input (`migrationApplied: false`)
+
+**Migration steps (v0 → v1):** 8 stable ordered steps
+- copy scenarioId, auditTrail, finalTurnState.turnId/resolved/pressureLevel
+- add `finalTurnState.currentPhase` (null — unknown in v0)
+- add `finalTurnState.completedPhaseCount` (inferred from `auditTrail.length`)
+- add `phaseOrder` (canonical `PHASE_ORDER`)
+- add `deterministicProof: false` (migrated data cannot claim original determinism)
+- add `signature` (rebuilt from migrated state)
+
+**Migration result** (`SnapshotMigrationResult`):
+`sourceVersion`, `targetVersion`, `scenarioId`, `migrationApplied`, `migrationSteps`,
+`migratedSnapshot` (fully typed `TurnPersistenceSnapshot`), `migrationHash`
+(deterministic `djb2` of `sourceVersion|targetVersion|scenarioId|steps`)
+
+**Migration failure codes** (`MigrationFailureCode`):
+- `MISSING_SOURCE_VERSION` — `schemaVersion` absent or not a string
+- `UNSUPPORTED_OLD_VERSION` — version string present but not in `vN` format (pre-dates scheme)
+- `UNSUPPORTED_FUTURE_VERSION` — `vN` where N > 1
+- `MALFORMED_INPUT` — JSON parse failure or required v0 fields missing
+
+**Migration failure result** (`MigrationFailureResult`):
+`failureCode`, `failureReason`, `sourceVersion`, `targetVersion`, `scenarioId`,
+`migrationAllowed: false`, `failureHash` (stable `djb2` hash)
+
+**Guard function:** `migrateSnapshot(json): MigrationGuardResult`
+- Discriminated union: `{ ok: true, migration }` or `{ ok: false, failure }`
+- Never throws — all errors captured as structured data
+- Validation order: JSON parse → schemaVersion present → format check → version range → field validation
+
+**Migration scenario ID:** `turn-pipeline:persisted-clean-turn:migrated-v0`
+- Defined as a constant; not registered in the Scenario Registry
+
+**Helper:** `buildV0SnapshotJson(...)` — deterministic factory for v0 test fixtures
+
+**Constants:** `CURRENT_SNAPSHOT_VERSION = 'v1'`, `MINIMUM_SUPPORTED_VERSION = 'v0'`,
+`MIGRATION_STEPS_V0_TO_V1` (8 stable entries)
+
+**What the migration proves:**
+- `v0` snapshot migrates to `v1` with `migrationApplied: true`
+- `migrationHash` and `migrationSteps` are stable across repeated calls
+- Migrated `auditTrail` matches the original clean-turn `auditTrail`
+- Migrated `finalTurnState.completedPhaseCount` inferred from `auditTrail.length`
+- `deterministicProof: false` on migrated snapshots
+- All 4 failure codes fire correctly for their inputs
+- Failure hashes are stable; different codes produce different hashes
+- No partial state returned on failure (discriminated union enforces this)
+- `v1` input returns identity migration (`migrationApplied: false`, empty steps)
+- `firstCleanTurnScenario` and corruption guard are unaffected after migration tests
+
+**Tests:** 48 new tests in `tests/turn-persistence/r23-turn-phase-snapshot-migration.test.ts`
+
+---
+
 ## R22 — Turn Phase Persistence Corruption Guard (implemented)
 
 Proves that malformed, corrupted, missing-field, wrong-version, or tampered
