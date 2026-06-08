@@ -3,18 +3,22 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "demo": "npm run build && node dist/src/demo/r2-demo-runner.js",
+    "demo:compiled": "node dist/src/demo/r2-demo-runner.js",
     "generate-snapshot": "npm run build && node dist/scripts/generate-golden-snapshot.js",
-    "verify-manifest": "npm run build && node dist/scripts/verify-manifest.js"
+    "generate-manifest": "npm run build && node dist/scripts/generate-manifest.js",
+    "verify-manifest": "npm run build && node dist/scripts/verify-manifest.js",
+    "check-snapshot-coverage": "npm run build && node dist/scripts/check-snapshot-coverage.js",
+    "check-snapshot-coverage:compiled": "node dist/scripts/check-snapshot-coverage.js",
+    "lint-registry": "vitest run tests/snapshot-registry-lint.test.ts"
   },
-
   "devDependencies": {
     "@types/node": "^20.12.0",
+    "ajv": "^8.20.0",
     "typescript": "^5.4.0",
     "vitest": "^1.5.0"
   }
