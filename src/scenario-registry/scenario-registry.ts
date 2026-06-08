@@ -26,9 +26,11 @@ import {
   firstCleanTurnScenario,
   mutatedMainIntentScenario,
   invalidPhaseOrderScenario,
+  failureThenCleanRecoveryScenario,
   SCENARIO_FIRST_CLEAN_TURN,
   SCENARIO_MUTATED_MAIN_INTENT,
   SCENARIO_INVALID_PHASE_ORDER,
+  SCENARIO_FAILURE_THEN_CLEAN_RECOVERY,
 } from '../turn-pipeline/turn-pipeline.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -166,6 +168,23 @@ register({
   expectedActionCount: 2,
   memoryBehavior: 'none',
   runner: invalidPhaseOrderScenario,
+});
+
+register({
+  id: SCENARIO_FAILURE_THEN_CLEAN_RECOVERY,
+  title: 'Turn Pipeline — Failure Then Clean Recovery',
+  phase: 'turn-pipeline',
+  sourceDomain: 'turn-pipeline',
+  description:
+    'Runs the invalid-phase-order sequence first (StartOfTurn → Main, skipping ' +
+    'Upkeep), which fails with OUT_OF_ORDER_PHASE, then immediately runs a fresh ' +
+    'valid clean turn from pristine state. Proves the failure is fully contained ' +
+    'and does not poison subsequent sequences. ' +
+    'auditTrail has 10 events (1 completed + 1 failure + 1 RECOVERY:START + 7 clean). ' +
+    'Recovery half signature equals firstCleanTurnScenario signature.',
+  expectedActionCount: 9,
+  memoryBehavior: 'none',
+  runner: failureThenCleanRecoveryScenario,
 });
 
 // Freeze the registry after population so no code can add or remove entries

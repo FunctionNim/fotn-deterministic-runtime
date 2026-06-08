@@ -36,9 +36,10 @@ export type TurnPhase = typeof PHASE_ORDER[number];
 
 // ─── Scenario ID ──────────────────────────────────────────────────────────────
 
-export const SCENARIO_FIRST_CLEAN_TURN    = 'turn-pipeline:first-clean-turn';
-export const SCENARIO_MUTATED_MAIN_INTENT = 'turn-pipeline:mutated-main-intent';
-export const SCENARIO_INVALID_PHASE_ORDER = 'turn-pipeline:invalid-phase-order';
+export const SCENARIO_FIRST_CLEAN_TURN          = 'turn-pipeline:first-clean-turn';
+export const SCENARIO_MUTATED_MAIN_INTENT       = 'turn-pipeline:mutated-main-intent';
+export const SCENARIO_INVALID_PHASE_ORDER       = 'turn-pipeline:invalid-phase-order';
+export const SCENARIO_FAILURE_THEN_CLEAN_RECOVERY = 'turn-pipeline:failure-then-clean-recovery';
 
 // ─── Failure guard types ───────────────────────────────────────────────────────
 
@@ -475,6 +476,200 @@ export function invalidPhaseOrderScenario(): ReplayResult {
     replayInitialState,
     guardResult.priorStateSummary,
     auditTrail,
+  );
+}
+
+// ─── Recovery types and helpers ───────────────────────────────────────────────
+
+/**
+ * Structured result from a full failure-then-recovery run.
+ *
+ * Contains both halves so tests can assert on each independently:
+ *   - failureHalf: the contained invalid-phase-order rejection
+ *   - recoveryHalf: the subsequent fresh clean turn
+ */
+export interface TurnPhaseRecoveryResult {
+  readonly scenarioId: string;
+  readonly failureHalf: Readonly<{
+    failureCode: FailureCode;
+    expectedPhase: TurnPhase;
+    receivedPhase: TurnPhase;
+    failureReason: string;
+    priorStateSummary: Readonly<Record<string, unknown>>;
+    auditTrailUpToFailure: readonly string[];
+    failureSignature: RuntimeSignature;
+  }>;
+  readonly recoveryHalf: Readonly<{
+    finalState: TurnState;
+    auditTrail: readonly string[];
+    signature: RuntimeSignature;
+  }>;
+  /** True when the failure half produced a FailureGuardResult (never threw). */
+  readonly failureContained: boolean;
+  /** True when the recovery half completed all phases with resolved: true. */
+  readonly recoverySucceeded: boolean;
+}
+
+/**
+ * R20 — Run a failure-then-recovery sequence and return a structured result.
+ *
+ * Step 1: run the invalid phase order sequence (StartOfTurn → Main, skipping
+ *         required Upkeep) through runTurnPipelineGuarded → FailureGuardResult.
+ * Step 2: run a fresh valid clean turn (all 7 phases in PHASE_ORDER) using
+ *         the same initial state and intents as firstCleanTurnScenario.
+ *
+ * The two halves share no state — the clean turn always starts from a pristine
+ * TurnState, proving the failure cannot contaminate subsequent sequences.
+ */
+export function runTurnPhaseRecovery(): TurnPhaseRecoveryResult {
+  // ── Failure half ─────────────────────────────────────────────────────────
+  const failureInitial: TurnState = {
+    turnId: 'turn-fail',
+    currentPhase: null,
+    completedPhases: [],
+    pressureLevel: 0,
+    resolved: false,
+  };
+
+  const invalidIntents: PhaseIntent[] = [
+    { phase: 'StartOfTurn', label: 'begin startofturn' },
+    { phase: 'Main',        label: 'begin main' },
+    { phase: 'Upkeep',     label: 'begin upkeep' },
+    { phase: 'Journey',    label: 'begin journey' },
+    { phase: 'Alchemist',  label: 'begin alchemist' },
+    { phase: 'Combat',     label: 'begin combat' },
+    { phase: 'EndOfTurn',  label: 'begin endofturn' },
+  ];
+
+  const guardResult = runTurnPipelineGuarded(
+    SCENARIO_INVALID_PHASE_ORDER,
+    failureInitial,
+    invalidIntents,
+  );
+
+  if (!isFailureGuardResult(guardResult)) {
+    throw new Error('runTurnPhaseRecovery: failure half unexpectedly succeeded');
+  }
+
+  // ── Recovery half ─────────────────────────────────────────────────────────
+  // Identical to firstCleanTurnScenario — same turnId, same intents —
+  // proving that recovering from a failure produces the exact same result
+  // as running a clean turn from scratch.
+  const recoveryInitial: TurnState = {
+    turnId: 'turn-1',
+    currentPhase: null,
+    completedPhases: [],
+    pressureLevel: 0,
+    resolved: false,
+  };
+
+  const validIntents: PhaseIntent[] = PHASE_ORDER.map((phase) => ({
+    phase,
+    label: `begin ${phase.toLowerCase()}`,
+  }));
+
+  const cleanResult = runTurnPipeline(
+    SCENARIO_FIRST_CLEAN_TURN,
+    recoveryInitial,
+    validIntents,
+  );
+
+  return {
+    scenarioId: SCENARIO_FAILURE_THEN_CLEAN_RECOVERY,
+    failureHalf: {
+      failureCode:            guardResult.failureCode,
+      expectedPhase:          guardResult.expectedPhase,
+      receivedPhase:          guardResult.receivedPhase,
+      failureReason:          guardResult.failureReason,
+      priorStateSummary:      guardResult.priorStateSummary,
+      auditTrailUpToFailure:  guardResult.auditTrailUpToFailure,
+      failureSignature:       guardResult.failureSignature,
+    },
+    recoveryHalf: {
+      finalState:  cleanResult.finalState,
+      auditTrail:  cleanResult.auditTrail,
+      signature:   cleanResult.signature,
+    },
+    failureContained:  true,
+    recoverySucceeded: cleanResult.finalState.resolved,
+  };
+}
+
+/**
+ * R20 — Failure-then-clean-recovery scenario returning a ReplayResult.
+ *
+ * Converts the two-halves result into a single ReplayResult so it can be
+ * registered in the Scenario Registry and inspected through the Audit Fixture.
+ *
+ * Combined audit trail (10 events):
+ *   1 StartOfTurn (from failure half)
+ *   1 FAILURE:OUT_OF_ORDER_PHASE event
+ *   1 RECOVERY:START separator
+ *   7 clean phase events (from recovery half)
+ *
+ * Combined ordered actions (9):
+ *   2 from failure half (StartOfTurn completed + Main rejected)
+ *   7 from recovery half (all phases)
+ *
+ * finalState = recovery half's final state (resolved: true)
+ * initialState = failure half's initial state (before anything ran)
+ */
+export function failureThenCleanRecoveryScenario(): ReplayResult {
+  const rec = runTurnPhaseRecovery();
+
+  const failureEvent =
+    `FAILURE:${rec.failureHalf.failureCode} — expected ${rec.failureHalf.expectedPhase}, ` +
+    `received ${rec.failureHalf.receivedPhase}`;
+
+  const combinedAuditTrail: string[] = [
+    ...rec.failureHalf.auditTrailUpToFailure,
+    failureEvent,
+    'RECOVERY:START — fresh clean turn begins',
+    ...rec.recoveryHalf.auditTrail,
+  ];
+
+  // Failure actions: completed phases + the rejected intent
+  const failureActions: ReplayAction[] = [
+    ...rec.failureHalf.auditTrailUpToFailure.map((e, i) => ({
+      label: e.replace('phase:', '').split(' — ')[0] + ':' + e.split(' — ')[1],
+      index: i,
+    })),
+    {
+      label: `${rec.failureHalf.receivedPhase}:begin ${rec.failureHalf.receivedPhase.toLowerCase()} [REJECTED]`,
+      index: rec.failureHalf.auditTrailUpToFailure.length,
+    },
+  ];
+
+  // Recovery actions: one per clean-turn phase
+  const recoveryActions: ReplayAction[] = rec.recoveryHalf.auditTrail.map((e, i) => ({
+    label: e.replace('phase:', '').split(' — ')[0] + ':' + e.split(' — ')[1],
+    index: failureActions.length + i,
+  }));
+
+  const combinedActions: ReplayAction[] = [...failureActions, ...recoveryActions];
+
+  const initialStateSerialisable: ReplayFinalState = {
+    turnId: 'turn-fail',
+    currentPhase: null,
+    pressureLevel: 0,
+    resolved: false,
+    completedPhaseCount: 0,
+  };
+
+  const finalStateSerialisable: ReplayFinalState = {
+    turnId: rec.recoveryHalf.finalState.turnId,
+    currentPhase: rec.recoveryHalf.finalState.currentPhase,
+    pressureLevel: rec.recoveryHalf.finalState.pressureLevel,
+    resolved: rec.recoveryHalf.finalState.resolved,
+    completedPhaseCount: rec.recoveryHalf.finalState.completedPhases.length,
+  };
+
+  return assembleResult(
+    SCENARIO_FAILURE_THEN_CLEAN_RECOVERY,
+    combinedActions,
+    initialStateSerialisable,
+    finalStateSerialisable,
+    combinedAuditTrail,
   );
 }
 

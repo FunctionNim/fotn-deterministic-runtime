@@ -32,7 +32,7 @@ dist/         TypeScript compiled output
 ```bash
 npm run build            # Compile TypeScript
 npm run typecheck        # Type-check without emit
-npm test                 # Run all TypeScript tests (vitest) — 313 checks
+npm test                 # Run all TypeScript tests (vitest) — 346 checks
 npm run demo             # Run the Phase R2 deterministic demo (both acts)
 npm run generate-snapshot  # Intentionally regenerate the golden snapshot
 npm run verify-manifest  # Print manifest + live drift report

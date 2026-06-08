@@ -297,6 +297,51 @@ paths, and shape assertions.
 
 ---
 
+## R20 — Turn Phase Recovery Fixture (implemented)
+
+Proves that after a guarded turn phase failure, a fresh valid turn can still
+execute cleanly and deterministically. The failure must be fully contained
+and must not poison later runtime sequences.
+
+**Module additions:** `src/turn-pipeline/turn-pipeline.ts`
+
+**New types:**
+- `TurnPhaseRecoveryResult` — structured result with `failureHalf`,
+  `recoveryHalf`, `failureContained: true`, `recoverySucceeded: true`
+
+**New functions:**
+- `runTurnPhaseRecovery()` — runs the invalid-phase-order failure sequence,
+  then runs a fresh clean turn; returns `TurnPhaseRecoveryResult`
+- `failureThenCleanRecoveryScenario()` — wraps both halves into a `ReplayResult`
+  for registry and audit fixture integration
+
+**Recovery scenario:** `turn-pipeline:failure-then-clean-recovery`
+- Failure half: StartOfTurn → Main (OUT_OF_ORDER_PHASE), contained, audit 1+1=2 events
+- Recovery half: fresh clean turn, all 7 phases, resolved: true
+- Combined audit trail: 10 events (1 completed + 1 FAILURE + 1 RECOVERY:START + 7 clean)
+- Combined ordered actions: 9 (2 failure + 7 clean), `expectedActionCount: 9`
+- Recovery half `combinedHash` === `firstCleanTurnScenario().combinedHash` (same input → same hash)
+
+**What proves containment:**
+- `failureContained: true` (FailureGuardResult returned, no throw)
+- `priorStateSummary.resolved: false` (turn never completed)
+- Recovery audit has zero FAILURE markers
+- Failure and recovery audit trails are disjoint sets
+
+**What proves clean recovery:**
+- `recoverySucceeded: true`
+- `recoveryHalf.finalState.resolved: true`
+- 7 completed phases in PHASE_ORDER order
+- `recoveryHalf.signature.combinedHash === firstCleanTurnScenario().signature.combinedHash`
+
+**Registry count:** 7 registered scenarios total.
+
+**Tests:** 27 new tests in `tests/turn-pipeline/r20-turn-phase-recovery.test.ts` covering
+registry registration, failure containment, clean recovery, audit separation,
+signature equality with clean-turn, determinism, and Replay Audit Fixture integration.
+
+---
+
 ## R19 — Turn Phase Failure Guard Fixture (implemented)
 
 Proves that invalid or out-of-order phase intents are rejected clearly and
