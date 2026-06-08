@@ -251,7 +251,7 @@ describe('R15 Audit Fixture — getAllAuditFixtures', () => {
 
   it('returns an AuditFixture for every registered scenario', () => {
     const fixtures = getAllAuditFixtures();
-    expect(fixtures.length).toBe(4);
+    expect(fixtures.length).toBe(5);
     for (const id of ALL_IDS) {
       expect(fixtures.map((f) => f.scenarioId)).toContain(id);
     }

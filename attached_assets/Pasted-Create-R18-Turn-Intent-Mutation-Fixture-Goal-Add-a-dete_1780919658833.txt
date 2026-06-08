@@ -1,0 +1,77 @@
+Create R18 — Turn Intent Mutation Fixture.
+
+Goal:
+Add a deterministic mutation fixture for the R17 Turn Phase Pipeline.
+
+Purpose:
+Prove that changing one phase intent changes the final state and/or runtime signature in a controlled, intentional way while preserving required phase order and audit structure.
+
+Current known state:
+
+* R17 Turn Phase Pipeline Domain is complete and CI-verified.
+* Commit bb00a20e passed both GitHub Actions workflows.
+* npm test currently passes 256/256.
+* Required phase order is locked:
+    1. StartOfTurn
+    2. Upkeep
+    3. Main
+    4. Journey
+    5. Alchemist
+    6. Combat
+    7. EndOfTurn
+* The repository is a TypeScript + C# runtime/library.
+* Do not add a frontend web app.
+
+Requirements:
+
+1. Add a mutation fixture for the turn phase pipeline.
+2. The fixture should compare:
+    * baseline scenario: turn-pipeline:first-clean-turn
+    * at least one mutated scenario with one changed phase intent
+3. Suggested mutated scenario id:
+    * turn-pipeline:mutated-main-intent
+4. The mutated scenario should preserve:
+    * exact required phase order
+    * one audit event per phase, unless the mutation intentionally adds a clearly named extra audit event
+    * deterministicProof true
+5. The mutated scenario should intentionally change:
+    * final state summary and/or final state hash
+    * input hash
+    * combined runtime signature hash
+6. Register the mutated scenario in the scenario registry.
+7. Add tests proving:
+    * baseline and mutated scenario both execute the same required phase order
+    * baseline and mutated scenario both remain deterministic
+    * baseline and mutated input hashes differ
+    * baseline and mutated final state hash or summary differs
+    * baseline and mutated combined signature hashes differ
+    * audit event order remains stable
+    * mutation is localized to the intended phase
+    * replay audit fixture can inspect the mutated scenario
+8. Prefer structured assertions over console text.
+9. Do not auto-update golden snapshots unless behavior intentionally requires it.
+10. Do not break npm run demo.
+11. Update README.md, docs/runtime-roadmap.md, or the production roadmap with a short R18 note.
+12. After implementation, run:
+
+* npm run build
+* npm test
+* dotnet build
+* npm run demo
+
+13. Commit and push R18 to main.
+14. Confirm GitHub Actions starts.
+15. If possible, confirm GitHub Actions passes.
+
+After completion, summarize:
+
+* files added or changed
+* mutated scenario id
+* mutation location/phase
+* what changed and what stayed stable
+* tests added
+* test count change
+* local verification results
+* commit SHA/message
+* push status
+* GitHub Actions status

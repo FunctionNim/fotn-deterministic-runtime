@@ -37,6 +37,7 @@ export type TurnPhase = typeof PHASE_ORDER[number];
 // ─── Scenario ID ──────────────────────────────────────────────────────────────
 
 export const SCENARIO_FIRST_CLEAN_TURN = 'turn-pipeline:first-clean-turn';
+export const SCENARIO_MUTATED_MAIN_INTENT = 'turn-pipeline:mutated-main-intent';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -163,6 +164,42 @@ export function runTurnPipeline(
   };
 }
 
+// ─── Scenario helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Shared helper — converts a TurnPipelineResult into a ReplayResult using the
+ * same serialisable state shape for both scenarios so the two are directly
+ * comparable by their hash fields.
+ */
+function pipelineResultToReplay(pipelineResult: TurnPipelineResult): ReplayResult {
+  const init = pipelineResult.initialState;
+  const fs   = pipelineResult.finalState;
+
+  const replayInitialState: ReplayFinalState = {
+    turnId: init.turnId,
+    currentPhase: init.currentPhase,
+    pressureLevel: init.pressureLevel,
+    resolved: init.resolved,
+    completedPhaseCount: init.completedPhases.length,
+  };
+
+  const replayFinalState: ReplayFinalState = {
+    turnId: fs.turnId,
+    currentPhase: fs.currentPhase,
+    pressureLevel: fs.pressureLevel,
+    resolved: fs.resolved,
+    completedPhaseCount: fs.completedPhases.length,
+  };
+
+  return assembleResult(
+    pipelineResult.scenarioId,
+    pipelineResult.orderedActions,
+    replayInitialState,
+    replayFinalState,
+    [...pipelineResult.auditTrail],
+  );
+}
+
 // ─── First Clean Turn Scenario ─────────────────────────────────────────────────
 
 /**
@@ -189,35 +226,48 @@ export function firstCleanTurnScenario(): ReplayResult {
     label: `begin ${phase.toLowerCase()}`,
   }));
 
-  const pipelineResult = runTurnPipeline(
-    SCENARIO_FIRST_CLEAN_TURN,
-    initialState,
-    phaseIntents,
+  return pipelineResultToReplay(
+    runTurnPipeline(SCENARIO_FIRST_CLEAN_TURN, initialState, phaseIntents),
   );
+}
 
-  // Serialisable state snapshots for ReplayResult / assembleResult
-  const replayInitialState: ReplayFinalState = {
-    turnId: initialState.turnId,
-    currentPhase: initialState.currentPhase,
-    pressureLevel: initialState.pressureLevel,
-    resolved: initialState.resolved,
-    completedPhaseCount: initialState.completedPhases.length,
+// ─── Mutated Main Intent Scenario ──────────────────────────────────────────────
+
+/**
+ * R18 — Intentional mutation of the first clean turn.
+ *
+ * Changes from baseline (turn-pipeline:first-clean-turn):
+ *   - pressureLevel starts at 5 (instead of 0)  → initialStateHash differs,
+ *     finalStateHash differs
+ *   - Main phase label changed to "pressure disruption in main"
+ *     (instead of "begin main")  → inputHash differs, auditHash differs
+ *
+ * Preserved from baseline:
+ *   - Exact PHASE_ORDER execution
+ *   - One audit event per phase (7 total)
+ *   - deterministicProof: true
+ *   - Six of seven audit events are identical
+ *
+ * Used to prove that single-phase intent mutations propagate cleanly and
+ * completely through the signature system while leaving unrelated fields stable.
+ */
+export function mutatedMainIntentScenario(): ReplayResult {
+  const initialState: TurnState = {
+    turnId: 'turn-1',
+    currentPhase: null,
+    completedPhases: [],
+    pressureLevel: 5,
+    resolved: false,
   };
 
-  const fs = pipelineResult.finalState;
-  const replayFinalState: ReplayFinalState = {
-    turnId: fs.turnId,
-    currentPhase: fs.currentPhase,
-    pressureLevel: fs.pressureLevel,
-    resolved: fs.resolved,
-    completedPhaseCount: fs.completedPhases.length,
-  };
+  const phaseIntents: PhaseIntent[] = PHASE_ORDER.map((phase) => ({
+    phase,
+    label: phase === 'Main'
+      ? 'pressure disruption in main'
+      : `begin ${phase.toLowerCase()}`,
+  }));
 
-  return assembleResult(
-    SCENARIO_FIRST_CLEAN_TURN,
-    pipelineResult.orderedActions,
-    replayInitialState,
-    replayFinalState,
-    [...pipelineResult.auditTrail],
+  return pipelineResultToReplay(
+    runTurnPipeline(SCENARIO_MUTATED_MAIN_INTENT, initialState, phaseIntents),
   );
 }

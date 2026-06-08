@@ -24,7 +24,9 @@ import {
 
 import {
   firstCleanTurnScenario,
+  mutatedMainIntentScenario,
   SCENARIO_FIRST_CLEAN_TURN,
+  SCENARIO_MUTATED_MAIN_INTENT,
 } from '../turn-pipeline/turn-pipeline.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -131,6 +133,21 @@ register({
   expectedActionCount: 7,
   memoryBehavior: 'none',
   runner: firstCleanTurnScenario,
+});
+
+register({
+  id: SCENARIO_MUTATED_MAIN_INTENT,
+  title: 'Turn Pipeline — Mutated Main Intent',
+  phase: 'turn-pipeline',
+  sourceDomain: 'turn-pipeline',
+  description:
+    'Intentional mutation of the first clean turn. pressureLevel starts at 5 ' +
+    'and the Main phase label is changed to "pressure disruption in main". ' +
+    'Proves that single-phase mutations propagate cleanly through all signature ' +
+    'hash fields while leaving phase order and audit structure stable.',
+  expectedActionCount: 7,
+  memoryBehavior: 'none',
+  runner: mutatedMainIntentScenario,
 });
 
 // Freeze the registry after population so no code can add or remove entries

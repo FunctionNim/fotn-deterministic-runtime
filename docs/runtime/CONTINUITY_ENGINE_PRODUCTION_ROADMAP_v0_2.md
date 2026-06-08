@@ -297,6 +297,42 @@ paths, and shape assertions.
 
 ---
 
+## R18 — Turn Intent Mutation Fixture (implemented)
+
+Proves that changing one phase intent changes the runtime signature in a
+controlled, intentional way while preserving required phase order and audit
+structure.
+
+**Mutated scenario:** `turn-pipeline:mutated-main-intent`
+
+**Mutation vs baseline (`turn-pipeline:first-clean-turn`):**
+| Field | Change |
+|---|---|
+| `pressureLevel` | 0 → 5 (initial and final state) |
+| Main phase label | `"begin main"` → `"pressure disruption in main"` |
+
+**Hash fields that change:**
+- `initialStateHash` — pressureLevel differs in initial state
+- `inputHash` — Main action label differs
+- `auditHash` — Main audit event label differs
+- `finalStateHash` — pressureLevel differs in final state
+- `combinedHash` — all of the above
+
+**Fields that stay stable:**
+- Phase order — exactly `PHASE_ORDER` for both scenarios
+- `auditEventCount` — 7 for both
+- `deterministicProof` — true for both
+- 6 of 7 audit events — identical (only Main phase differs)
+
+**Registry count:** 5 registered scenarios total.
+
+**Tests:** 26 new tests in `tests/turn-pipeline/r18-turn-intent-mutation.test.ts` covering
+phase order preservation, mutation determinism, all five signature hash divergences,
+mutation localisation (exactly 1 of 7 audit events differs), Scenario Registry integration,
+and Replay Audit Fixture integration.
+
+---
+
 ## R17 — Turn Phase Pipeline Domain (implemented)
 
 Adds a small, reusable deterministic turn phase pipeline to the TypeScript
