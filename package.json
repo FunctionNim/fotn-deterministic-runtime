@@ -7,7 +7,8 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "demo": "npm run build && node dist/src/demo/r2-demo-runner.js"
   },
 
   "devDependencies": {
