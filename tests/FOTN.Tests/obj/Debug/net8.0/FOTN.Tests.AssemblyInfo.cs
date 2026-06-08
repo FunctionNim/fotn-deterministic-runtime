@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("FOTN.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+30f14b728477a91b89f770a18b23efd9b4fa7536")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+31570f7c10c2452154ba7451893edb64fbb2438e")]
 [assembly: System.Reflection.AssemblyProductAttribute("FOTN.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("FOTN.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

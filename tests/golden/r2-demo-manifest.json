@@ -1,0 +1,27 @@
+{
+  "phase": "R2-R3",
+  "description": "Deterministic Demo Runner — Golden Snapshot Manifest",
+  "demoActs": [
+    "Act I — The Room That Would Not Fall (Stone Pressure Sequence)",
+    "Act II — First Continuation Loop (World State + Event Audit)"
+  ],
+  "fixtureSource": "src/demo/r2-demo-fixture.ts",
+  "snapshotSource": "tests/golden/r2-demo-snapshot.json",
+  "expectedEventCount": 3,
+  "expectedWorldMemoryCount": 2,
+  "expectedActionSequenceCount": 16,
+  "deterministicFlags": {
+    "actI": true,
+    "actIIEvents": true,
+    "actIIMemories": true,
+    "actIIState": true
+  },
+  "verificationCommands": [
+    "npm run build",
+    "npm test",
+    "dotnet build FOTN.DeterministicRuntime.sln",
+    "npm run demo"
+  ],
+  "lockStatus": "locked",
+  "lockedAt": "2026-06-08"
+}

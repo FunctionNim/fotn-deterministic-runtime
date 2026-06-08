@@ -1,0 +1,258 @@
+{
+  "generatedAt": "2026-06-08",
+  "phase": "R2-R3",
+  "actI": {
+    "spellSeed": {
+      "name": "Anchor Pulse",
+      "functionType": "Stone",
+      "containmentRule": "A release condition must be named before the hold becomes complete.",
+      "returnOutput": "Living Stability / Stability with Release"
+    },
+    "trialGate": {
+      "fromFunction": "Stone",
+      "toFunction": "Clay",
+      "reversionWarning": "Burial"
+    },
+    "stepCount": 16,
+    "steps": [
+      {
+        "action": "EnterRoom",
+        "phase": "Entered",
+        "pressureMeter": {
+          "tremor": 1,
+          "seal": 0,
+          "passage": 0
+        }
+      },
+      {
+        "action": "TestAnchor(plate:first)",
+        "phase": "Reading",
+        "pressureMeter": {
+          "tremor": 1,
+          "seal": 0,
+          "passage": 0
+        }
+      },
+      {
+        "action": "NameProtection(plate:first)",
+        "phase": "Reading",
+        "pressureMeter": {
+          "tremor": 1,
+          "seal": 0,
+          "passage": 0
+        }
+      },
+      {
+        "action": "NameReleaseCondition(plate:first)",
+        "phase": "Reading",
+        "pressureMeter": {
+          "tremor": 1,
+          "seal": 0,
+          "passage": 0
+        }
+      },
+      {
+        "action": "CastAnchorPulse(plate:first)",
+        "phase": "Casting",
+        "pressureMeter": {
+          "tremor": 0.75,
+          "seal": 0.05,
+          "passage": 0.2
+        }
+      },
+      {
+        "action": "ReleaseAnchor(plate:first)",
+        "phase": "Releasing",
+        "pressureMeter": {
+          "tremor": 0.8,
+          "seal": 0,
+          "passage": 0.35
+        }
+      },
+      {
+        "action": "TestAnchor(plate:second)",
+        "phase": "Reading",
+        "pressureMeter": {
+          "tremor": 0.8,
+          "seal": 0,
+          "passage": 0.35
+        }
+      },
+      {
+        "action": "NameProtection(plate:second)",
+        "phase": "Reading",
+        "pressureMeter": {
+          "tremor": 0.8,
+          "seal": 0,
+          "passage": 0.35
+        }
+      },
+      {
+        "action": "NameReleaseCondition(plate:second)",
+        "phase": "Reading",
+        "pressureMeter": {
+          "tremor": 0.8,
+          "seal": 0,
+          "passage": 0.35
+        }
+      },
+      {
+        "action": "CastAnchorPulse(plate:second)",
+        "phase": "Casting",
+        "pressureMeter": {
+          "tremor": 0.55,
+          "seal": 0.05,
+          "passage": 0.55
+        }
+      },
+      {
+        "action": "ReleaseAnchor(plate:second)",
+        "phase": "Releasing",
+        "pressureMeter": {
+          "tremor": 0.6,
+          "seal": 0,
+          "passage": 0.7
+        }
+      },
+      {
+        "action": "TestAnchor(plate:threshold)",
+        "phase": "Reading",
+        "pressureMeter": {
+          "tremor": 0.6,
+          "seal": 0,
+          "passage": 0.7
+        }
+      },
+      {
+        "action": "NameProtection(plate:threshold)",
+        "phase": "Reading",
+        "pressureMeter": {
+          "tremor": 0.6,
+          "seal": 0,
+          "passage": 0.7
+        }
+      },
+      {
+        "action": "NameReleaseCondition(plate:threshold)",
+        "phase": "Reading",
+        "pressureMeter": {
+          "tremor": 0.6,
+          "seal": 0,
+          "passage": 0.7
+        }
+      },
+      {
+        "action": "CastAnchorPulse(plate:threshold)",
+        "phase": "Casting",
+        "pressureMeter": {
+          "tremor": 0.35,
+          "seal": 0.05,
+          "passage": 0.9
+        }
+      },
+      {
+        "action": "ReleaseAnchor(plate:threshold)",
+        "phase": "Resolved",
+        "pressureMeter": {
+          "tremor": 0.4,
+          "seal": 0,
+          "passage": 1
+        }
+      }
+    ],
+    "initialSnapshot": {
+      "phase": "Dormant",
+      "pressureMeter": {
+        "tremor": 1,
+        "seal": 0,
+        "passage": 0
+      },
+      "allPlatesReleased": false,
+      "allPlatesDiscovered": false,
+      "allPlatesStabilized": false
+    },
+    "finalSnapshot": {
+      "phase": "Resolved",
+      "returnOutput": "Living Stability / Stability with Release",
+      "pressureMeter": {
+        "tremor": 0.4,
+        "seal": 0,
+        "passage": 1
+      },
+      "allPlatesReleased": true,
+      "allPlatesDiscovered": true,
+      "allPlatesStabilized": true
+    },
+    "ledgerEntry": {
+      "entryId": "ledger:room:stone:that-would-not-fall",
+      "roomId": "room:stone:that-would-not-fall",
+      "functionTested": "Stone",
+      "spellSeedId": "spell-seed:stone:anchor-pulse",
+      "held": [
+        "trembling room",
+        "anchor plates",
+        "exit threshold"
+      ],
+      "protected": [
+        "shield the first passage",
+        "shield the second passage",
+        "shield the threshold passage"
+      ],
+      "almostBecamePrison": [],
+      "releaseConditionsNamed": [
+        "release plate:first when the way forward is clear",
+        "release plate:second when the way forward is clear",
+        "release plate:threshold when the way forward is clear"
+      ],
+      "witnessConfirmation": "Anchor Witness confirmed release before shelter became tomb.",
+      "costPaid": "Body Cost: breath strain, hand tremor, shoulder weight.",
+      "reversionWarning": "Burial",
+      "returnOutput": "Living Stability / Stability with Release",
+      "awaitingCollection": [
+        "Clay follow-up room",
+        "Stone-to-Clay transition lesson"
+      ]
+    },
+    "deterministicMatch": true
+  },
+  "actII": {
+    "executedEventIds": [
+      "intent:observe-starter",
+      "encounter:pressure_alpha:resolved:2",
+      "intent:restore-after-pressure"
+    ],
+    "persistedMemoryIds": [
+      "memory:encounter:pressure_alpha:resolved:2",
+      "memory:intent:restore-after-pressure"
+    ],
+    "executedEventCount": 3,
+    "persistedMemoryCount": 2,
+    "initialState": {
+      "tick": 0,
+      "seekerPressureLevel": 0.1,
+      "seekerResonanceStability": 0.7,
+      "seekerCalm": 0.7,
+      "seekerInTeaRitual": false,
+      "districtPressureLevel": 0.25,
+      "districtResonanceStability": 0.8,
+      "districtRestorationProgress": 0.4,
+      "encounterPhase": "Entering",
+      "encounterResolved": false
+    },
+    "finalState": {
+      "tick": 1,
+      "seekerPressureLevel": 0.10200000000000001,
+      "seekerResonanceStability": 0.7449,
+      "seekerCalm": 0.75,
+      "seekerInTeaRitual": true,
+      "districtPressureLevel": 0.11917000000000001,
+      "districtResonanceStability": 0.8777245,
+      "districtRestorationProgress": 0.511,
+      "encounterPhase": "Resolved",
+      "encounterResolved": true
+    },
+    "eventsDeterministic": true,
+    "memoriesDeterministic": true,
+    "stateDeterministic": true
+  }
+}

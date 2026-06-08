@@ -8,7 +8,9 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "demo": "npm run build && node dist/src/demo/r2-demo-runner.js"
+    "demo": "npm run build && node dist/src/demo/r2-demo-runner.js",
+    "generate-snapshot": "npm run build && node dist/scripts/generate-golden-snapshot.js",
+    "verify-manifest": "npm run build && node dist/scripts/verify-manifest.js"
   },
 
   "devDependencies": {
