@@ -258,3 +258,29 @@ This proves the engine before world complexity is added.
 ## Current Next Engineering Step
 
 Create compile-safe project structure and implement Phase 0 + Phase 1 skeletons.
+
+## R12 — Replay Verification Domain (implemented)
+
+Proves that a known initial state + a known ordered action sequence can be
+replayed into the same final state, same audit trail, and same deterministic
+signature on every independent run.
+
+**Module:** `src/replay/` — `replay-verifier.ts` (core types, djb2 hash, stable
+JSON serialiser, signature builder) + `scenarios.ts` (named scenario runners).
+
+**Scenarios:**
+- `act-i:stone-room:that-would-not-fall` — 17 actions, Act I Stone Room
+  full sequence through RecordLedger.
+- `act-ii:first-continuation-loop` — 7 logical steps, Act II continuation
+  loop (Observe → FunctionActivate → EncounterEscalate → Stabilise+Resolve →
+  Restore → HeartbeatTick → DistrictUpdate).
+- `act-i:stone-room:forced-failure` — mutation probe; ForceBreak instead of
+  the correct sequence, proving a changed action produces a different signature.
+
+**What R12 proves (25 tests in `tests/replay/r12-replay-verification.test.ts`):**
+- Two independent replays → identical final state
+- Two independent replays → identical audit trail
+- Two independent replays → identical deterministic signature
+- Action order preserved (orderedActions[i].index === i)
+- Changing an action changes the final state and signature
+- stableJsonHash is key-order-independent and collision-sensitive

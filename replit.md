@@ -32,7 +32,7 @@ dist/         TypeScript compiled output
 ```bash
 npm run build            # Compile TypeScript
 npm run typecheck        # Type-check without emit
-npm test                 # Run all TypeScript tests (vitest) — 141 checks
+npm test                 # Run all TypeScript tests (vitest) — 166 checks
 npm run demo             # Run the Phase R2 deterministic demo (both acts)
 npm run generate-snapshot  # Intentionally regenerate the golden snapshot
 npm run verify-manifest  # Print manifest + live drift report
@@ -55,6 +55,8 @@ Every push and pull request runs the **Verification Gate** workflow defined in `
 | .NET 8 | `dotnet restore` → `dotnet build` → `dotnet test` |
 
 **Golden snapshot protection:** `tests/golden/r2-demo-snapshot.json` is committed to source and read by CI. CI **never** generates or updates it. If the live fixture output diverges from the snapshot, `npm test` fails with a clear drift message. To update the snapshot intentionally, run `npm run generate-snapshot` locally and commit the result.
+
+**Snapshot integrity guard:** After `npm run demo`, CI runs `git diff --exit-code tests/golden/`. If anything under `tests/golden/` was written or modified during the CI run (e.g. via an accidental call to `generate-snapshot`), the job fails loudly with a clear error message. This turns a silent overwrite into a hard build failure.
 
 A complementary `.NET`-only gate also runs via `.github/workflows/deterministic-runtime-ci.yml`.
 

@@ -1,0 +1,68 @@
+Create R12 — Replay Verification Domain.
+
+Goal:
+Add the first replay verification domain to the deterministic runtime.
+
+Purpose:
+Prove that a known initial state plus a known ordered event/action list can be replayed into the same final state, same audit trail, and same deterministic signature.
+
+Current known state:
+
+* R2 deterministic demo runner exists.
+* R3 regression fixture exists.
+* R4 golden snapshot and audit manifest exist.
+* R5 GitHub Actions verification gate exists.
+* R7 repository hygiene is complete.
+* R8 README onboarding exists.
+* R10 branch protection guide exists.
+* R11 runtime roadmap recommends R12 as Replay Verification Domain.
+* The project is still a TypeScript + C# runtime/library.
+* Do not add a frontend web app.
+
+Requirements:
+
+1. Add a small replay verification module in the TypeScript runtime.
+2. The module should support:
+    * named replay scenario id
+    * initial state
+    * ordered input events/actions
+    * replay execution
+    * final state
+    * audit trail
+    * deterministic signature
+3. Keep the first implementation small and deterministic.
+4. Prefer reusing existing R2/R3 fixture concepts if possible.
+5. Add at least one replay scenario based on an existing deterministic sequence:
+    * Act I Stone Room sequence, or
+    * Act II First Continuation Loop
+6. Add tests proving:
+    * same scenario replayed twice produces identical final state
+    * same scenario replayed twice produces identical audit trail
+    * same scenario replayed twice produces identical deterministic signature
+    * event/action order is preserved
+    * changing an input event/action intentionally changes the signature or result
+7. The signature should be structured and stable, not based on console formatting.
+8. Do not auto-update golden snapshots.
+9. Do not break npm run demo.
+10. Update README or docs/runtime-roadmap.md with a short R12 note.
+11. After implementation, run:
+
+* npm run build
+* npm test
+* dotnet build
+* npm run demo
+
+12. Commit and push the R12 work to main.
+13. Confirm GitHub Actions starts.
+14. If possible, confirm GitHub Actions passes.
+
+After completion, summarize:
+
+* files added or changed
+* replay scenario id
+* what the replay verifier proves
+* test count change
+* local verification results
+* commit SHA/message
+* push status
+* GitHub Actions status

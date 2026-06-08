@@ -14,6 +14,7 @@ coverage/
 # .NET build artifacts
 bin/
 obj/
+artifacts/
 
 # Visual Studio
 *.user
