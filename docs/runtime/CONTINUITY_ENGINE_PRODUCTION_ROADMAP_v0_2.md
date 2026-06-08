@@ -297,6 +297,59 @@ paths, and shape assertions.
 
 ---
 
+## R22 — Turn Phase Persistence Corruption Guard (implemented)
+
+Proves that malformed, corrupted, missing-field, wrong-version, or tampered
+turn snapshots fail safely with stable error codes, without restoring partial
+invalid state or poisoning later valid restore/replay paths.
+
+**Module:** `src/turn-persistence/turn-corruption-guard.ts`
+
+**Corruption failure codes** (`CorruptionFailureCode`):
+- `WRONG_SCHEMA_VERSION` — `schemaVersion` is not `'v1'`
+- `MISSING_SCENARIO_ID` — `scenarioId` absent or empty
+- `MISSING_RUNTIME_SIGNATURE` — `signature` absent or `combinedHash` missing/empty
+- `TAMPERED_FINAL_STATE` — `finalTurnState` absent or `resolved` field missing
+- `PHASE_ORDER_CHANGED` — `phaseOrder` absent, wrong length, or entries differ from `PHASE_ORDER`
+- `AUDIT_TRAIL_CHANGED` — `auditTrail` absent, not an array, or empty
+
+**Structured failure result** (`CorruptionFailureResult`):
+- `failureCode` — stable machine-readable code
+- `failureReason` — human-readable explanation
+- `corruptedField` — field path that was absent, malformed, or tampered
+- `snapshotVersion` — `schemaVersion` from the snapshot if present, else `null`
+- `snapshotScenarioId` — `scenarioId` from the snapshot if present, else `null`
+- `restoreAllowed: false` — always; no partial state is ever returned on failure
+- `failureHash` — deterministic `djb2` hash of `code|field|version|scenarioId`
+
+**Guard function:** `guardTurnSnapshot(json): CorruptionGuardResult`
+- Discriminated union: `{ ok: true, snapshot }` or `{ ok: false, failure }`
+- Never throws — all errors are captured as structured data
+- Validation order: JSON parse → schemaVersion → scenarioId → signature →
+  finalTurnState → phaseOrder → auditTrail
+
+**Corruption scenario ID:** `turn-pipeline:persisted-clean-turn:corrupted`
+- Defined as a constant; not registered in the Scenario Registry because
+  corruption results are `CorruptionFailureResult`s, not `ReplayResult`s
+
+**What the guard proves:**
+- Each corruption case produces the expected `failureCode`
+- `failureCode` and `failureHash` are stable across repeated identical calls
+- Different corruption classes produce different `failureHash` values
+- `restoreAllowed` is always `false` for invalid snapshots
+- Failed guard result has no `snapshot` field (no partial state)
+- Valid snapshot passes guard and matches `restoreTurnSnapshot` result exactly
+- Object key order does not affect validation (reversed keys → same outcome)
+- Array order is significant (reversed `phaseOrder` → `PHASE_ORDER_CHANGED` with exact index)
+- `firstCleanTurnScenario` and `failureThenCleanRecoveryScenario` unaffected
+
+**Tests:** 42 new tests in `tests/turn-persistence/r22-turn-phase-persistence-corruption-guard.test.ts`
+covering each corruption case (4 tests each × 6 cases), stable failure hashes,
+restoreAllowed enforcement, no-partial-state proof, valid-snapshot pass-through,
+key-order independence, array-order significance, and isolation.
+
+---
+
 ## R21 — Turn Phase Persistence Snapshot (implemented)
 
 Proves that a completed turn pipeline result can be serialized, restored,
