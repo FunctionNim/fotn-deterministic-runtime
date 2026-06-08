@@ -204,6 +204,12 @@ Branch protection guidance is documented in:
 docs/branch-protection.md
 ```
 
+Contributor workflow guidance is documented in:
+
+```text
+CONTRIBUTING.md
+```
+
 ## Phase Locks
 
 ### R2 — Deterministic Demo Runner
@@ -238,6 +244,10 @@ This README makes the repository understandable to future developers, testers, a
 
 Added manual GitHub branch-protection guidance so `main` can require the runtime verification gates before future merges.
 
+### R16 — Developer Contribution Checklist
+
+Added contributor workflow guidance so future runtime changes preserve deterministic behavior, fixture coverage, snapshot discipline, replay audit visibility, and CI verification.
+
 ## Development Rules
 
 - Keep the repository as a runtime/library unless a future phase explicitly creates an app layer.
@@ -264,5 +274,6 @@ It now has:
 7. repository hygiene cleanup
 8. public developer onboarding
 9. branch protection setup guidance
+10. developer contribution checklist
 
 The runtime is ready for the next phase of engine development on top of a protected deterministic foundation.
