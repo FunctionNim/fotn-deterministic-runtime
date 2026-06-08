@@ -37,20 +37,5 @@ jobs:
       - name: Test
         run: dotnet test FOTN.DeterministicRuntime.sln --no-build
 
-      - name: Golden snapshot existence check
-        run: |
-          if [ ! -f tests/golden/r2-demo-snapshot.json ]; then
-            echo "ERROR: tests/golden/r2-demo-snapshot.json is missing."
-            echo "The golden snapshot must be committed to source and never deleted or renamed."
-            echo "Restore the file and commit it before merging."
-            exit 1
-          fi
-
-      - name: Golden snapshot integrity guard
-        run: |
-          git diff --exit-code tests/golden/ || {
-            echo "ERROR: tests/golden/ was modified during CI."
-            echo "The generate-snapshot script must never run in CI."
-            echo "Run 'npm run generate-snapshot' locally and commit the result."
-            exit 1
-          }
+      - name: Golden snapshot guard
+        uses: ./.github/actions/snapshot-guard

@@ -1,12 +1,29 @@
 /**
  * R12 — Replay Verification Domain
+ * R13 — Refactored to use the shared Runtime Signature System
  *
  * Proves that a known initial state + a known ordered action sequence can be
  * replayed into the same final state, same audit trail, and same deterministic
  * signature on every run.
  *
+ * Hashing and signature construction are now provided by the canonical
+ * runtime-signature module.  This file re-exports the utilities that external
+ * code (e.g. tests) previously imported directly from here.
+ *
  * Doctrine: Pressure → Function → Consequence → Audit → Meaning
  */
+
+export {
+  stableJsonHash,
+  djb2,
+  stableJson,
+  buildRuntimeSignature,
+  RuntimeSignature,
+  RuntimeSignatureInput,
+  SIGNATURE_VERSION,
+} from '../runtime-signature/runtime-signature.js';
+
+import { buildRuntimeSignature, RuntimeSignature } from '../runtime-signature/runtime-signature.js';
 
 // ─── Core types ───────────────────────────────────────────────────────────────
 
@@ -16,99 +33,55 @@ export interface ReplayAction {
   readonly index: number;
 }
 
-/** Structured, stable representation of a scenario's final state. */
+/** Structured, stable representation of a scenario's initial or final state. */
 export type ReplayFinalState = Readonly<Record<string, unknown>>;
 
-/** A stable hash + metadata that uniquely identifies a replay outcome. */
-export interface ReplaySignature {
-  readonly scenarioId: string;
-  readonly actionCount: number;
-  /** Hash of the final state snapshot (structured, not console output). */
-  readonly finalStateHash: string;
-  /** Hash of the ordered audit trail. */
-  readonly auditTrailHash: string;
-  /** Combined hash of final state + audit trail together. */
-  readonly combinedHash: string;
-}
+/**
+ * ReplaySignature is the canonical RuntimeSignature.
+ * Re-exported here so existing imports from replay-verifier continue to work.
+ */
+export type ReplaySignature = RuntimeSignature;
 
 /** Full result of running one replay scenario. */
 export interface ReplayResult {
   readonly scenarioId: string;
   readonly orderedActions: readonly ReplayAction[];
+  /** Structured snapshot of the world state before any action was applied. */
+  readonly initialState: ReplayFinalState;
   readonly finalState: ReplayFinalState;
   readonly auditTrail: readonly string[];
-  readonly signature: ReplaySignature;
-}
-
-// ─── Hashing ──────────────────────────────────────────────────────────────────
-
-/**
- * Stable JSON serialiser — sorts object keys so the output is identical
- * regardless of insertion order.
- */
-function stableJson(value: unknown): string {
-  return JSON.stringify(value, (_key, val: unknown): unknown => {
-    if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
-      return Object.fromEntries(
-        Object.entries(val as Record<string, unknown>).sort(([a], [b]) =>
-          a.localeCompare(b),
-        ),
-      );
-    }
-    return val;
-  });
-}
-
-/**
- * djb2 hash — deterministic, pure, no external dependencies.
- * Returns an 8-char lowercase hex string.
- */
-function djb2(s: string): string {
-  let h = 5381;
-  for (let i = 0; i < s.length; i++) {
-    h = (Math.imul(h, 33) ^ s.charCodeAt(i)) >>> 0;
-  }
-  return h.toString(16).padStart(8, '0');
-}
-
-/** Hash any value via stable JSON serialisation then djb2. */
-export function stableJsonHash(value: unknown): string {
-  return djb2(stableJson(value));
-}
-
-// ─── Signature builder ────────────────────────────────────────────────────────
-
-export function buildSignature(
-  scenarioId: string,
-  actions: readonly ReplayAction[],
-  finalState: ReplayFinalState,
-  auditTrail: readonly string[],
-): ReplaySignature {
-  const finalStateHash = stableJsonHash(finalState);
-  const auditTrailHash = stableJsonHash(auditTrail);
-  const combinedHash = djb2(finalStateHash + '|' + auditTrailHash + '|' + scenarioId);
-  return {
-    scenarioId,
-    actionCount: actions.length,
-    finalStateHash,
-    auditTrailHash,
-    combinedHash,
-  };
+  readonly signature: RuntimeSignature;
 }
 
 // ─── Scenario factory helper ───────────────────────────────────────────────────
 
+/**
+ * Assemble a ReplayResult from structured scenario data.
+ *
+ * Delegates signature construction to buildRuntimeSignature so that the
+ * runtime-signature module is the single source of truth for all hashing.
+ */
 export function assembleResult(
   scenarioId: string,
   orderedActions: readonly ReplayAction[],
+  initialState: ReplayFinalState,
   finalState: ReplayFinalState,
   auditTrail: readonly string[],
+  memoryIds?: readonly string[] | null,
 ): ReplayResult {
   return {
     scenarioId,
     orderedActions,
+    initialState,
     finalState,
     auditTrail,
-    signature: buildSignature(scenarioId, orderedActions, finalState, auditTrail),
+    signature: buildRuntimeSignature({
+      scenarioId,
+      initialState,
+      orderedActions,
+      finalState,
+      auditTrail,
+      memoryIds,
+    }),
   };
 }

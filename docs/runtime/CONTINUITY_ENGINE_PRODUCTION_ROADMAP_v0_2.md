@@ -259,6 +259,44 @@ This proves the engine before world complexity is added.
 
 Create compile-safe project structure and implement Phase 0 + Phase 1 skeletons.
 
+## R13 — Runtime Signature System (implemented)
+
+Formalizes deterministic signatures into a reusable runtime subsystem so that
+all scenarios, fixtures, snapshots, replay verification, and CI share one
+canonical signature format.
+
+**Module:** `src/runtime-signature/runtime-signature.ts`
+
+**Canonical `RuntimeSignature` fields:**
+- `signatureVersion` — schema version (`'r13'`); stamps every signature for
+  future compatibility.
+- `scenarioId` — stable identifier for the scenario or fixture being signed.
+- `actionCount` — number of ordered input events / actions.
+- `initialStateHash` — key-order-independent hash of the structured world state
+  before any action was applied.
+- `inputHash` — order-sensitive hash of the ordered action / event sequence.
+- `finalStateHash` — key-order-independent hash of the structured final state.
+- `auditHash` — order-sensitive hash of the ordered audit trail.
+- `memoryHash` — hash of persisted memory IDs, or `null` when not applicable.
+- `deterministicProof` — formal boolean assertion that identical input always
+  produces this exact signature.
+- `combinedHash` — single hash covering all other hash fields together.
+
+**Hashing guarantees:** object key order does not affect any hash; array element
+order does affect every hash; `stableJsonHash` uses stable JSON (sorted keys)
+then djb2.
+
+**R12 refactored:** `src/replay/replay-verifier.ts` now delegates all hashing
+and signature construction to the runtime-signature module. `ReplaySignature` is
+an alias for `RuntimeSignature`. `assembleResult` accepts `initialState` and
+optional `memoryIds`.
+
+**Tests:** 18 new tests in `tests/runtime-signature/r13-runtime-signature.test.ts`
+covering hash invariance, array-order sensitivity, all input-change → output-change
+paths, and shape assertions.
+
+---
+
 ## R12 — Replay Verification Domain (implemented)
 
 Proves that a known initial state + a known ordered action sequence can be

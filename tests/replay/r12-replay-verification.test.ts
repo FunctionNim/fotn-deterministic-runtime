@@ -1,5 +1,7 @@
 /**
  * R12 — Replay Verification Domain tests.
+ * R13 — Updated to reflect RuntimeSignature fields (auditHash, signatureVersion,
+ *        deterministicProof, initialStateHash).
  *
  * Proves:
  *   1. Same scenario replayed twice → identical final state
@@ -54,6 +56,8 @@ describe('R12 Act I — Stone Room replay', () => {
   it('scenario id is correct', () => {
     const result = actIStoneRoomScenario();
     expect(result.signature.scenarioId).toBe(SCENARIO_ACT_I_STONE_ROOM);
+    expect(result.signature.signatureVersion).toBe('r13');
+    expect(result.signature.deterministicProof).toBe(true);
   });
 
   it('action count matches the number of ordered actions', () => {
@@ -62,9 +66,9 @@ describe('R12 Act I — Stone Room replay', () => {
     expect(result.signature.actionCount).toBe(17); // EnterRoom + 5×3 plates + RecordLedger
   });
 
-  it('finalStateHash and auditTrailHash are distinct strings', () => {
+  it('finalStateHash and auditHash are distinct strings', () => {
     const result = actIStoneRoomScenario();
-    expect(result.signature.finalStateHash).not.toBe(result.signature.auditTrailHash);
+    expect(result.signature.finalStateHash).not.toBe(result.signature.auditHash);
   });
 
   it('final state reflects a resolved room with all plates released', () => {
@@ -90,6 +94,14 @@ describe('R12 Act I — Stone Room replay', () => {
     expect(a).toEqual(b);
     expect(a.phase).toBe('Dormant');
     expect(a.plateCount).toBe(3);
+  });
+
+  it('result includes a stable initialState before any action', () => {
+    const runA = actIStoneRoomScenario();
+    const runB = actIStoneRoomScenario();
+    expect(runA.initialState).toEqual(runB.initialState);
+    expect(runA.initialState.phase).toBe('Dormant');
+    expect(runA.signature.initialStateHash).toBe(runB.signature.initialStateHash);
   });
 
 });
@@ -126,6 +138,8 @@ describe('R12 Act II — First Continuation Loop replay', () => {
   it('scenario id is correct', () => {
     const result = actIIFirstContinuationLoopScenario();
     expect(result.signature.scenarioId).toBe(SCENARIO_ACT_II_FIRST_LOOP);
+    expect(result.signature.signatureVersion).toBe('r13');
+    expect(result.signature.deterministicProof).toBe(true);
   });
 
   it('action count matches the number of ordered actions', () => {
@@ -145,6 +159,15 @@ describe('R12 Act II — First Continuation Loop replay', () => {
     const b = actIIInitialStateDescription();
     expect(a).toEqual(b);
     expect(a.encounterResolved).toBe(false);
+  });
+
+  it('result includes a stable initialState and a non-null memoryHash', () => {
+    const runA = actIIFirstContinuationLoopScenario();
+    const runB = actIIFirstContinuationLoopScenario();
+    expect(runA.initialState).toEqual(runB.initialState);
+    expect(runA.signature.initialStateHash).toBe(runB.signature.initialStateHash);
+    expect(runA.signature.memoryHash).not.toBeNull();
+    expect(runA.signature.memoryHash).toBe(runB.signature.memoryHash);
   });
 
 });

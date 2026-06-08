@@ -1,5 +1,7 @@
 /**
  * R12 — Named replay scenarios.
+ * R13 — Updated to pass initialState and memoryIds to assembleResult so the
+ *        canonical RuntimeSignature includes all required fields.
  *
  * Each exported function runs a complete, self-contained replay and returns a
  * ReplayResult that can be compared across two independent invocations to prove
@@ -68,8 +70,11 @@ export function actIStoneRoomScenario(): ReplayResult {
 
   const orderedActions: ReplayAction[] = actionLabels.map((label, index) => ({ label, index }));
 
-  // Execute the sequence
+  // Capture initial state before any action is applied
   let room = createRoomThatWouldNotFall();
+  const initialState = stoneRoomFinalState(room);
+
+  // Execute the sequence
   room = applyStoneRoomAction(room, { type: 'EnterRoom' });
 
   for (const plateId of plates) {
@@ -92,7 +97,7 @@ export function actIStoneRoomScenario(): ReplayResult {
   const finalState = stoneRoomFinalState(room);
   const auditTrail = [...room.witnessRecords];
 
-  return assembleResult(SCENARIO_ACT_I_STONE_ROOM, orderedActions, finalState, auditTrail);
+  return assembleResult(SCENARIO_ACT_I_STONE_ROOM, orderedActions, initialState, finalState, auditTrail);
 }
 
 // ─── Act I — Forced Failure Scenario (mutation probe) ─────────────────────────
@@ -109,13 +114,15 @@ export function actIForcedFailureScenario(): ReplayResult {
   ];
 
   let room = createRoomThatWouldNotFall();
+  const initialState = stoneRoomFinalState(room);
+
   room = applyStoneRoomAction(room, { type: 'EnterRoom' });
   room = applyStoneRoomAction(room, { type: 'ForceBreak', plateId: 'plate:first' });
 
   const finalState = stoneRoomFinalState(room);
   const auditTrail = [...room.witnessRecords];
 
-  return assembleResult(SCENARIO_ACT_I_FORCED_FAILURE, orderedActions, finalState, auditTrail);
+  return assembleResult(SCENARIO_ACT_I_FORCED_FAILURE, orderedActions, initialState, finalState, auditTrail);
 }
 
 // ─── Act II — First Continuation Loop Scenario ────────────────────────────────
@@ -126,6 +133,9 @@ export function actIForcedFailureScenario(): ReplayResult {
  * The "actions" are the seven logical steps of the loop in the order they
  * execute.  The audit trail is the ordered list of executed event IDs followed
  * by persisted memory IDs, reflecting the consequence of each step.
+ *
+ * memoryIds are passed separately so the RuntimeSignature can include a
+ * dedicated memoryHash field.
  */
 export function actIIFirstContinuationLoopScenario(): ReplayResult {
   const orderedActions: ReplayAction[] = [
@@ -137,6 +147,24 @@ export function actIIFirstContinuationLoopScenario(): ReplayResult {
     { label: 'Heartbeat:Tick', index: 5 },
     { label: 'District:Update(starter)', index: 6 },
   ];
+
+  // Capture initial state from the pre-run world
+  const s0 = createFirstContinuationState();
+  const seeker0 = s0.seekers.seeker_alpha;
+  const district0 = s0.districts.starter;
+  const encounter0 = s0.encounters.pressure_alpha;
+  const initialState: ReplayFinalState = {
+    tick: s0.tick,
+    seekerPressureLevel: seeker0.pressureLevel,
+    seekerResonanceStability: seeker0.resonance.stability,
+    seekerCalm: seeker0.emotional.calm,
+    seekerInTeaRitual: seeker0.restoration.inTeaRitual,
+    districtPressureLevel: district0.pressureLevel,
+    districtResonanceStability: district0.resonanceStability,
+    districtRestorationProgress: district0.restorationProgress,
+    encounterPhase: encounter0.phase,
+    encounterResolved: encounter0.resolved,
+  };
 
   const result = runFirstContinuationLoop();
   const s = result.state;
@@ -163,7 +191,14 @@ export function actIIFirstContinuationLoopScenario(): ReplayResult {
     ...result.persistedMemoryIds,
   ];
 
-  return assembleResult(SCENARIO_ACT_II_FIRST_LOOP, orderedActions, finalState, auditTrail);
+  return assembleResult(
+    SCENARIO_ACT_II_FIRST_LOOP,
+    orderedActions,
+    initialState,
+    finalState,
+    auditTrail,
+    result.persistedMemoryIds,
+  );
 }
 
 // ─── Initial state accessors (for documentation / test assertions) ─────────────

@@ -1,0 +1,34 @@
+name: Snapshot Guard
+description: >
+  Verifies that the golden snapshot file exists and was not modified during CI.
+  Fails loudly if the snapshot directory or file is missing, or if any file
+  under tests/golden/ was written or modified by the current CI run.
+
+runs:
+  using: composite
+  steps:
+    - name: Golden snapshot existence check
+      shell: bash
+      run: |
+        if [ ! -d tests/golden ]; then
+          echo "ERROR: tests/golden/ directory is missing."
+          echo "The entire golden snapshot directory has been deleted or was never created."
+          echo "Restore the tests/golden/ directory (including r2-demo-snapshot.json) and commit it before merging."
+          exit 1
+        fi
+        if [ ! -f tests/golden/r2-demo-snapshot.json ]; then
+          echo "ERROR: tests/golden/r2-demo-snapshot.json is missing."
+          echo "The golden snapshot must be committed to source and never deleted or renamed."
+          echo "Restore the file and commit it before merging."
+          exit 1
+        fi
+
+    - name: Golden snapshot integrity guard
+      shell: bash
+      run: |
+        git diff --exit-code tests/golden/ || {
+          echo "ERROR: tests/golden/ was modified during CI."
+          echo "The generate-snapshot script must never run in CI."
+          echo "Run 'npm run generate-snapshot' locally and commit the result."
+          exit 1
+        }
