@@ -198,6 +198,12 @@ npm run demo
 
 CI must not regenerate golden snapshots. Snapshot drift should fail clearly so behavior changes remain visible.
 
+Branch protection guidance is documented in:
+
+```text
+docs/branch-protection.md
+```
+
 ## Phase Locks
 
 ### R2 — Deterministic Demo Runner
@@ -228,6 +234,10 @@ Cleaned repository tracking so generated build artifacts do not pollute future c
 
 This README makes the repository understandable to future developers, testers, and collaborators.
 
+### R10 — Branch Protection Setup Guide / Manual Enforcement Lock
+
+Added manual GitHub branch-protection guidance so `main` can require the runtime verification gates before future merges.
+
 ## Development Rules
 
 - Keep the repository as a runtime/library unless a future phase explicitly creates an app layer.
@@ -253,5 +263,6 @@ It now has:
 6. GitHub Actions verification
 7. repository hygiene cleanup
 8. public developer onboarding
+9. branch protection setup guidance
 
 The runtime is ready for the next phase of engine development on top of a protected deterministic foundation.
