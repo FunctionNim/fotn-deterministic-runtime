@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "snapshot-registry-schema",
+  "title": "Snapshot Registry",
+  "description": "Maps every file under tests/golden/ to its npm generation script. Keys starting with '_' are metadata and may hold any value. All other keys must map to a non-empty string naming the npm script used to regenerate that golden file.",
+  "type": "object",
+  "patternProperties": {
+    "^_": {
+      "description": "Metadata key (underscore prefix). Any value is allowed."
+    },
+    "^[^_]": {
+      "description": "Registry entry. Value must be a non-empty string naming an npm script.",
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}

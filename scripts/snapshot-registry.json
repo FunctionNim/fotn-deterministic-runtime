@@ -1,0 +1,5 @@
+{
+  "_comment": "Maps every file under tests/golden/ to its npm generation script. The check-snapshot-coverage script enforces this registry is complete — every golden file must have an entry, and every entry must name a real npm script.",
+  "r2-demo-snapshot.json": "generate-snapshot",
+  "r2-demo-manifest.json": "generate-manifest"
+}
