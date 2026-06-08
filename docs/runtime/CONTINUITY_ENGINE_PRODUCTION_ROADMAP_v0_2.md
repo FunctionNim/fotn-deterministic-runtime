@@ -297,6 +297,65 @@ paths, and shape assertions.
 
 ---
 
+## R24 — Turn Phase Persistence Canonical Export (implemented)
+
+Produces stable, portable JSON artifacts for persisted turn phase snapshots
+and their associated guard/migration results — for external tools, future UI
+layers, debugging, and archive inspection — without changing deterministic
+behavior.
+
+**Module:** `src/turn-persistence/turn-persistence-export.ts`
+
+**Export kinds** (`ExportKind`):
+- `'snapshot'` — valid persisted clean-turn snapshot
+- `'migration'` — migrated snapshot result
+- `'corruption-failure'` — corruption guard failure result
+- `'migration-failure'` — migration failure result
+
+**Export envelope** (`PersistenceExport`):
+- `exportVersion: 'e1'` — incremented when envelope shape changes
+- `exportKind` — one of the four kinds above
+- `scenarioId` — scenario ID from source data, or null
+- `snapshotVersion` — schemaVersion for snapshot/corruption-failure exports, else null
+- `sourceVersion` / `targetVersion` — for migration exports, else null
+- `exportedAtPolicy: 'deterministic/static/no-wall-clock-time'` — explicit policy
+- `exportHash` — djb2 of all fields except exportHash (tamper-detection)
+- `payload` — the exported data (shape varies by kind)
+
+**Export functions:**
+- `exportSnapshot(snapshot)` — payload IS the TurnPersistenceSnapshot; `JSON.stringify(payload)` restores via `restoreTurnSnapshot`
+- `exportMigrationResult(migration)` — payload includes `migrationApplied`, `migrationSteps`, `migrationHash`, `migratedSnapshot`
+- `exportCorruptionFailure(failure)` — payload includes `restoreAllowed: false`
+- `exportMigrationFailure(failure)` — payload includes `migrationAllowed: false`
+
+**Utilities:**
+- `parseExport(json)` — parse and structurally validate; throws on wrong exportVersion
+- `verifyExportHash(exported)` — recompute and compare hash; returns false if tampered
+
+**Export scenario ID:** `turn-pipeline:persistence-canonical-export`
+- Defined as a constant; not registered in the Scenario Registry
+
+**Constants:** `EXPORT_VERSION = 'e1'`, `EXPORTED_AT_POLICY = 'deterministic/static/no-wall-clock-time'`
+
+**What proves export determinism:**
+- Identical inputs → byte-identical JSON (two-call equality tests per kind)
+- All object keys sorted alphabetically at every nesting level
+- No `Date`, `Math.random()`, or any wall-clock source
+- `exportedAtPolicy` field explicitly declares the policy
+
+**What proves valid exports remain restorable:**
+- Snapshot payload JSON passes directly to `restoreTurnSnapshot`
+- Migration payload's `migratedSnapshot` passes directly to `restoreTurnSnapshot`
+- Both restore to correct `scenarioId` and audit trail length
+
+**What proves failure exports do not allow restore:**
+- Corruption-failure payload carries `restoreAllowed: false`
+- Migration-failure payload carries `migrationAllowed: false`
+
+**Tests:** 54 new tests in `tests/turn-persistence/r24-turn-phase-persistence-canonical-export.test.ts`
+
+---
+
 ## R23 — Turn Phase Snapshot Migration Fixture (implemented)
 
 Proves that older supported snapshot versions can migrate forward safely, while
