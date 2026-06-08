@@ -22,6 +22,11 @@ import {
   SCENARIO_ACT_II_FIRST_LOOP,
 } from '../replay/scenarios.js';
 
+import {
+  firstCleanTurnScenario,
+  SCENARIO_FIRST_CLEAN_TURN,
+} from '../turn-pipeline/turn-pipeline.js';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 /** How a scenario interacts with the memory layer. */
@@ -111,6 +116,21 @@ register({
   expectedActionCount: 7,
   memoryBehavior: 'persisted',
   runner: actIIFirstContinuationLoopScenario,
+});
+
+register({
+  id: SCENARIO_FIRST_CLEAN_TURN,
+  title: 'Turn Pipeline — First Clean Turn',
+  phase: 'turn-pipeline',
+  sourceDomain: 'turn-pipeline',
+  description:
+    'Seven-phase clean turn: StartOfTurn → Upkeep → Main → Journey → Alchemist → ' +
+    'Combat → EndOfTurn. Each phase records one audit event. Ends with resolved: true ' +
+    'and deterministicProof: true. Proves the turn pipeline advances phases in exact ' +
+    'required order and produces a stable deterministic signature.',
+  expectedActionCount: 7,
+  memoryBehavior: 'none',
+  runner: firstCleanTurnScenario,
 });
 
 // Freeze the registry after population so no code can add or remove entries

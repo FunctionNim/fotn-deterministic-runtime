@@ -1,0 +1,85 @@
+Create R17 — Turn Phase Pipeline Domain.
+
+Goal:
+Add a small deterministic Turn Phase Pipeline domain to the TypeScript runtime.
+
+Purpose:
+Move beyond isolated demo/replay scenarios into a reusable gameplay-runtime sequence that models ordered turn phases deterministically.
+
+Current known state:
+
+* R12 Replay Verification Domain is complete.
+* R13 Runtime Signature System is complete.
+* R14 Scenario Registry is complete.
+* R15 Replay Audit Fixture is complete.
+* R16 Developer Contribution Checklist is complete.
+* npm test currently passes 228/228.
+* The repository is a TypeScript + C# runtime/library.
+* Do not add a frontend web app.
+
+Required phase order:
+
+1. StartOfTurn
+2. Upkeep
+3. Main
+4. Journey
+5. Alchemist
+6. Combat
+7. EndOfTurn
+
+Requirements:
+
+1. Add a small TypeScript turn pipeline module.
+2. The pipeline should accept:
+    * initial turn state
+    * ordered phase actions or phase intents
+    * deterministic phase order
+3. The pipeline should produce:
+    * final turn state
+    * audit trail
+    * phase transition list
+    * deterministic runtime signature
+4. Use the existing R13 Runtime Signature System.
+5. Register at least one new scenario through the R14 Scenario Registry.
+6. Add replay/audit coverage through existing R12/R15 patterns where appropriate.
+7. Keep the first scenario small.
+8. Suggested first scenario:
+    * scenario id: turn-pipeline:first-clean-turn
+    * starts at StartOfTurn
+    * advances through all seven phases
+    * records one audit event per phase
+    * ends at EndOfTurn with deterministic proof true
+9. Add tests proving:
+    * phases execute in exact required order
+    * same input produces same final state
+    * same input produces same audit trail
+    * same input produces same runtime signature
+    * changing a phase intent changes the signature or final state
+    * scenario registry lookup works
+    * replay audit fixture can inspect the phase audit trail
+10. Do not auto-update golden snapshots unless behavior intentionally requires it.
+11. Do not break npm run demo.
+12. Update README.md, docs/runtime-roadmap.md, or the production roadmap with a short R17 note.
+13. After implementation, run:
+
+* npm run build
+* npm test
+* dotnet build
+* npm run demo
+
+14. Commit and push R17 to main.
+15. Confirm GitHub Actions starts.
+16. If possible, confirm GitHub Actions passes.
+
+After completion, summarize:
+
+* files added or changed
+* new module path
+* new scenario id
+* phase order implemented
+* tests added
+* test count change
+* local verification results
+* commit SHA/message
+* push status
+* GitHub Actions status

@@ -51,8 +51,8 @@ describe('R14 Scenario Registry — registration', () => {
     expect(unique.size).toBe(ids.length);
   });
 
-  it('getAllScenarios() returns exactly 3 entries', () => {
-    expect(getAllScenarios().length).toBe(3);
+  it('getAllScenarios() returns exactly 4 entries', () => {
+    expect(getAllScenarios().length).toBe(4);
   });
 
   it('every registered scenario has all required metadata fields', () => {

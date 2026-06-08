@@ -297,6 +297,41 @@ paths, and shape assertions.
 
 ---
 
+## R17 — Turn Phase Pipeline Domain (implemented)
+
+Adds a small, reusable deterministic turn phase pipeline to the TypeScript
+runtime.  Moves beyond isolated replay scenarios into a gameplay-runtime
+sequence that models ordered turn phases deterministically.
+
+**Module:** `src/turn-pipeline/turn-pipeline.ts`
+
+**Canonical phase order (immutable):**
+`StartOfTurn → Upkeep → Main → Journey → Alchemist → Combat → EndOfTurn`
+
+**Types:** `TurnPhase`, `TurnState`, `PhaseIntent`, `TurnPipelineResult`
+
+**Public API:**
+- `runTurnPipeline(scenarioId, initialState, phaseIntents)` — deterministic pipeline engine
+- `firstCleanTurnScenario()` — canonical scenario returning `ReplayResult`
+- `PHASE_ORDER` — immutable ordered tuple of all 7 phase names
+- `SCENARIO_FIRST_CLEAN_TURN` — stable scenario ID constant
+
+**Scenario registered:** `turn-pipeline:first-clean-turn`
+- Starts at `StartOfTurn` (currentPhase: null, pressureLevel 0)
+- Advances through all seven phases in order
+- Records one audit event per phase: `"phase:{Phase} — begin {phase}"`
+- Ends with `resolved: true` and `deterministicProof: true`
+- `expectedActionCount: 7`, `memoryBehavior: 'none'`
+
+**Registry count:** 4 registered scenarios total.
+
+**Tests:** 27 new tests in `tests/turn-pipeline/r17-turn-pipeline.test.ts` covering
+phase order, determinism, state correctness, mutation sensitivity (label/turnId
+changes → different signature), Scenario Registry integration, and Replay Audit
+Fixture integration.
+
+---
+
 ## R15 — Replay Audit Fixture (implemented)
 
 Makes replay audit behaviour a first-class deterministic regression fixture.
