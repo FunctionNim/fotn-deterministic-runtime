@@ -297,6 +297,39 @@ paths, and shape assertions.
 
 ---
 
+## R15 — Replay Audit Fixture (implemented)
+
+Makes replay audit behaviour a first-class deterministic regression fixture.
+All data flows through the Scenario Registry — no scattered imports.
+
+**Module:** `src/replay-audit/replay-audit-fixture.ts`
+
+**AuditFixture fields per scenario:**
+- `scenarioId` — matches the registry key
+- `auditEventCount` — total entries in the ordered audit trail
+- `auditEvents` — full ordered audit trail (all entries)
+- `auditEventTypes` — sorted set of unique audit event labels
+- `firstAuditEvent` / `lastAuditEvent` — stable endpoints, or null for empty trails
+- `auditHash` — identical to `signature.auditHash` from the canonical RuntimeSignature
+- `signatureCombinedHash` — identical to `signature.combinedHash`
+- `finalStateSummary` — structured final state for assertion
+- `deterministicProof` — true for all registered scenarios
+
+**Public API:**
+- `buildAuditFixture(id)` — throws the registry's clear error for unknown IDs
+- `getAllAuditFixtures()` — all scenarios, sorted by ID
+
+**Confirmed audit event counts:**
+- `act-i:stone-room:that-would-not-fall` → 18 witness records (17 actions + 1 ledger close)
+- `act-i:stone-room:forced-failure` → 2 witness records
+- `act-ii:first-continuation-loop` → 5 entries (3 event IDs + 2 memory IDs)
+
+**Tests:** 25 new tests in `tests/replay-audit/r15-replay-audit-fixture.test.ts` covering
+structural completeness, determinism, hash agreement with live signatures, registry metadata
+agreement, forced-failure divergence, error handling, and getAllAuditFixtures.
+
+---
+
 ## R14 — Scenario Registry (implemented)
 
 Central, stable registry of named deterministic scenarios so replay tests,

@@ -1,0 +1,72 @@
+Create R15 — Replay Audit Fixture.
+
+Goal:
+Make replay audit behavior a first-class deterministic regression fixture.
+
+Purpose:
+R12 proved replay works. R13 made signatures canonical. R14 centralized scenarios. R15 should now prove that audit trails themselves are stable, inspectable, and regression-protected.
+
+Current known state:
+
+* R14 Scenario Registry is complete and CI-verified.
+* Commit 8e3b2944 passed both GitHub Actions workflows.
+* npm test currently passes 203/203.
+* Registered scenarios include:
+    * act-i:stone-room
+    * act-ii:first-continuation-loop
+    * act-i:stone-room:forced-failure
+* RuntimeSignature is canonical and reusable.
+* The repository is a TypeScript + C# runtime/library.
+* Do not add a frontend web app.
+
+Requirements:
+
+1. Add a replay audit fixture module in TypeScript.
+2. The fixture should read replay results through the scenario registry, not scattered direct imports.
+3. The fixture should expose structured audit facts for each replay scenario.
+4. Include fields such as:
+    * scenarioId
+    * auditEventCount
+    * auditEventTypes or audit labels
+    * firstAuditEvent
+    * lastAuditEvent
+    * auditHash
+    * signatureCombinedHash
+    * finalStateSummary
+    * deterministicProof
+5. Add tests proving:
+    * same scenario → same audit facts
+    * same scenario → same audit hash
+    * same scenario → same combined signature hash
+    * audit event order is stable
+    * first and last audit events are stable
+    * registered scenario metadata agrees with audit fixture facts
+    * forced-failure scenario audit differs intentionally from normal Act I
+    * unknown scenario id fails clearly
+6. Prefer structured assertions over console text.
+7. Do not auto-update golden snapshots.
+8. Do not break npm run demo.
+9. Update docs/runtime-roadmap.md, README.md, or the production roadmap with a short R15 note.
+10. After implementation, run:
+
+* npm run build
+* npm test
+* dotnet build
+* npm run demo
+
+11. Commit and push R15 to main.
+12. Confirm GitHub Actions starts.
+13. If possible, confirm GitHub Actions passes.
+
+After completion, summarize:
+
+* files added or changed
+* audit fixture module path
+* scenarios covered
+* audit facts exposed
+* tests added
+* test count change
+* local verification results
+* commit SHA/message
+* push status
+* GitHub Actions status
