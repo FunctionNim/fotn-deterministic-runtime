@@ -4,13 +4,23 @@ dist/
 # Node
 node_modules/
 
+# Build / cache directories
+build/
+coverage/
+.turbo/
+.vite/
+.cache/
+
 # .NET build artifacts
 bin/
 obj/
 
+# Visual Studio
+*.user
+*.suo
+
 # OS / editor
 .DS_Store
 Thumbs.db
-*.user
 .idea/
 .vscode/
