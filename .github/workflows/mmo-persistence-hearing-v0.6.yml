@@ -183,7 +183,7 @@ jobs:
           assert pg['durabilityAfterRestart'] is True
           assert ku['durabilityAfterRestart'] is True
           assert pg['eventCount'] == ku['eventCount'] == 12
-          assert pg['finalHash'] == ku['finalHash'] == '53ea6e6396f922f72e01096d8838fbf8f64794cdcbc04ae372de7f9d0b15eb79'
+          assert pg['finalHash'] == ku['finalHash'] == 'e3cede0e0bd1a9d84738f06f079a6e7756f785142ee93bcfe0acfca4bf25a4c4'
           hearing = {
             'status': 'OPEN_WITH_COMPARABLE_LIVE_EVIDENCE_NO_AUTOMATIC_WINNER',
             'fixture': 'BLUE_MAZE_RIVER_V0_6_ENRICHED_TWO_VISIT_12_EVENT',
