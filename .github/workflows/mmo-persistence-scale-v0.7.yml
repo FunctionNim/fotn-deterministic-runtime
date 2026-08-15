@@ -1,0 +1,208 @@
+name: MMO Persistence Scale v0.7
+
+on:
+  push:
+    branches:
+      - mmo-persistence-scale-v0.7
+    paths:
+      - 'mmo-scale-v0.7/**'
+      - '.github/workflows/mmo-persistence-scale-v0.7.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Qualify Blue base + v0.7 scale fixture
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Restore exact v0.6 lab payload
+        run: |
+          mkdir -p /tmp/fotn-lab
+          : > /tmp/fotn-lab.zip
+          for f in mmo-hearing-payload-v2/part*.b64; do base64 --decode "$f" >> /tmp/fotn-lab.zip; done
+          echo 'aa535a41683096d9bf5056b4ab7502da7821a23b811ff6871e3b4531f6710919  /tmp/fotn-lab.zip' | sha256sum -c -
+          unzip -q /tmp/fotn-lab.zip -d /tmp/fotn-lab
+          mkdir -p /tmp/fotn-lab/reports
+          cp mmo-scale-v0.7/*.mjs /tmp/fotn-lab/scripts/
+      - name: Re-run inherited v0.6 qualification
+        working-directory: /tmp/fotn-lab
+        run: npm run all
+      - name: Qualify deterministic persistence scale fixture
+        working-directory: /tmp/fotn-lab
+        run: node scripts/qualify-scale-fixture.mjs
+
+  postgres_scale:
+    name: PostgreSQL 18.4 repeatability + scale
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.4
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Restore exact v0.6 lab + v0.7 scale harness
+        run: |
+          mkdir -p /tmp/fotn-lab
+          : > /tmp/fotn-lab.zip
+          for f in mmo-hearing-payload-v2/part*.b64; do base64 --decode "$f" >> /tmp/fotn-lab.zip; done
+          echo 'aa535a41683096d9bf5056b4ab7502da7821a23b811ff6871e3b4531f6710919  /tmp/fotn-lab.zip' | sha256sum -c -
+          unzip -q /tmp/fotn-lab.zip -d /tmp/fotn-lab
+          mkdir -p /tmp/fotn-lab/reports
+          cp mmo-scale-v0.7/*.mjs /tmp/fotn-lab/scripts/
+      - name: Install PostgreSQL client dependency
+        working-directory: /tmp/fotn-lab
+        run: npm install --no-save pg@8
+      - name: Run PostgreSQL scale gate
+        working-directory: /tmp/fotn-lab
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+          FOTN_SCALE_TIERS: '100,1000,5000'
+          FOTN_SCALE_REPETITIONS: '3'
+          FOTN_CONTENTION_TIERS: '2,8,32'
+        run: node scripts/run-postgres-scale.mjs
+      - name: Upload PostgreSQL scale evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-scale-v0.7
+          path: /tmp/fotn-lab/reports/postgres-scale-v0.7.json
+          if-no-files-found: error
+
+  kurrent_scale:
+    name: KurrentDB current repeatability + scale
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Restore exact v0.6 lab + v0.7 scale harness
+        run: |
+          mkdir -p /tmp/fotn-lab
+          : > /tmp/fotn-lab.zip
+          for f in mmo-hearing-payload-v2/part*.b64; do base64 --decode "$f" >> /tmp/fotn-lab.zip; done
+          echo 'aa535a41683096d9bf5056b4ab7502da7821a23b811ff6871e3b4531f6710919  /tmp/fotn-lab.zip' | sha256sum -c -
+          unzip -q /tmp/fotn-lab.zip -d /tmp/fotn-lab
+          mkdir -p /tmp/fotn-lab/reports
+          cp mmo-scale-v0.7/*.mjs /tmp/fotn-lab/scripts/
+      - name: Install official KurrentDB Node client
+        working-directory: /tmp/fotn-lab
+        run: npm install --no-save @kurrent/kurrentdb-client@1.3.0
+      - name: Start disposable KurrentDB service
+        run: |
+          docker pull docker.kurrent.io/kurrent-latest/kurrentdb:latest
+          docker run -d --name kurrentdb-node -p 2113:2113 \
+            docker.kurrent.io/kurrent-latest/kurrentdb:latest \
+            --insecure --run-projections=All --enable-atom-pub-over-http
+          for i in $(seq 1 45); do
+            if curl -fsS 'http://127.0.0.1:2113/health/live?liveCode=200' >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          docker logs kurrentdb-node
+          exit 1
+      - name: Run KurrentDB scale gate
+        working-directory: /tmp/fotn-lab
+        env:
+          KURRENTDB_CONNECTION_STRING: 'kurrentdb://127.0.0.1:2113?tls=false'
+          FOTN_SCALE_TIERS: '100,1000,5000'
+          FOTN_SCALE_REPETITIONS: '3'
+          FOTN_CONTENTION_TIERS: '2,8,32'
+        run: node scripts/run-kurrent-scale.mjs
+      - name: Upload KurrentDB scale evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: kurrent-scale-v0.7
+          path: /tmp/fotn-lab/reports/kurrent-scale-v0.7.json
+          if-no-files-found: error
+
+  scale_matrix:
+    name: Persistence Hearing 001 repeatability + scale evidence matrix
+    needs:
+      - qualify
+      - postgres_scale
+      - kurrent_scale
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download scale evidence
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*-scale-v0.7'
+          merge-multiple: true
+          path: /tmp/evidence
+      - name: Require comparable PASS evidence and build matrix
+        run: |
+          python - <<'PY'
+          import json, pathlib, statistics
+          root=pathlib.Path('/tmp/evidence')
+          pg=json.loads((root/'postgres-scale-v0.7.json').read_text())
+          ku=json.loads((root/'kurrent-scale-v0.7.json').read_text())
+          assert pg['status']=='PASS_POSTGRESQL_SCALE_V0_7'
+          assert ku['status']=='PASS_KURRENTDB_SCALE_V0_7'
+          assert pg['configuration']==ku['configuration']=={'tiers':[100,1000,5000],'repetitions':3,'contentionTiers':[2,8,32]}
+          expected={
+            100:'a7bbfcda82fc70b9465f1585cd2ee5aa251a02e25d1514d901f3970c7f3bba7e',
+            1000:'fd941724c74dcdd28319432f479e8be96377fd304ed7cd22d18bd0551ff6a63f',
+            5000:'f0420d4cf2e01bbcebd6bb5093861ad6fd69e2c79bc299a534734212146f3108'
+          }
+          base='e3cede0e0bd1a9d84738f06f079a6e7756f785142ee93bcfe0acfca4bf25a4c4'
+          def summarize(report):
+            out={}
+            for tier in report['tiers']:
+              n=tier['tailEventCount']; reps=tier['repetitions']; assert len(reps)==3
+              for r in reps:
+                assert r['baseBlueFinalHash']==base
+                assert r['finalDigest']==expected[n]
+                assert all(r['checks'].values())
+              out[str(n)]={
+                'throughputMedianEps':statistics.median(r['throughputEventsPerSecond'] for r in reps),
+                'appendP50MedianMs':statistics.median(r['appendLatencyMs']['p50'] for r in reps),
+                'appendP95MedianMs':statistics.median(r['appendLatencyMs']['p95'] for r in reps),
+                'appendP99MedianMs':statistics.median(r['appendLatencyMs']['p99'] for r in reps),
+                'fullReadMedianMs':statistics.median(r['timingMs']['fullRead'] for r in reps),
+                'snapshotTailReadMedianMs':statistics.median(r['timingMs']['snapshotTailRead'] for r in reps),
+                'tailWriteMedianMs':statistics.median(r['timingMs']['tailWriteTotal'] for r in reps),
+                'finalDigest':expected[n]
+              }
+            assert [x['writers'] for x in report['contention']]==[2,8,32]
+            assert all(x['check']=='PASS_SINGLE_WINNER' and x['fulfilled']==1 and x['rejected']==x['writers']-1 for x in report['contention'])
+            return out
+          matrix={
+            'status':'PASS_REPEATABILITY_SCALE_COMPARABLE_EVIDENCE',
+            'baseFixture':'BLUE_MAZE_RIVER_V0_6_ENRICHED_TWO_VISIT_12_EVENT',
+            'baseBlueFinalHash':base,
+            'scaleTailClass':'NON_CANON_TECHNICAL_PERSISTENCE_PROBE',
+            'configuration':pg['configuration'],
+            'postgresql':{'version':pg.get('version'),'tiers':summarize(pg),'contention':pg['contention']},
+            'kurrentdb':{'serverInfo':ku.get('serverInfo'),'tiers':summarize(ku),'contention':ku['contention']},
+            'decision':'EVIDENCE_COMPLETE_FOR_PERSISTENCE_DECISION_HEARING_002_NO_AUTOMATIC_WINNER',
+            'boundary':'This matrix establishes repeatability/scale evidence on disposable hosted runners. It does not by itself select a production persistence authority.'
+          }
+          out=root/'persistence-scale-hearing-002-input.json'
+          out.write_text(json.dumps(matrix,indent=2))
+          print(out.read_text())
+          PY
+      - name: Upload scale comparison evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: persistence-scale-hearing-002-input
+          path: /tmp/evidence/persistence-scale-hearing-002-input.json
+          if-no-files-found: error
