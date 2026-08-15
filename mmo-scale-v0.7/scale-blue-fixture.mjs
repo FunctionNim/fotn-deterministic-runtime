@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { buildEnrichedBlueFixture } from '../mmo-hearing-v0.6/live-blue-fixture.mjs';
-import { canonicalJson } from '../mmo-hearing-v0.6/canonical.mjs';
+import { buildEnrichedBlueFixture } from './live-blue-fixture.mjs';
+import { canonicalJson } from '../src/canonical.mjs';
 
 function digestStep(previousDigest, event) {
   return createHash('sha256').update(previousDigest).update('\n').update(canonicalJson(event)).digest('hex');
