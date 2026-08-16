@@ -1,0 +1,35 @@
+name: MMO PostgreSQL Production Promotion v0.8c
+
+on:
+  push:
+    branches: [mmo-persistence-production-gates-v0.8]
+    paths:
+      - 'mmo-production-v0.8/run-postgres-production-v0.8c.sh'
+      - 'mmo-production-v0.8/run-postgres-production-v0.8b.sh'
+      - 'mmo-production-v0.8/run-postgres-production-v0.8.mjs'
+      - '.github/workflows/mmo-postgres-production-v0.8c.yml'
+      - 'mmo-hearing-payload-v2/**'
+      - 'mmo-scale-v0.7/**'
+
+permissions:
+  contents: read
+
+jobs:
+  postgres_production_gate:
+    name: PostgreSQL 18.4 representative HA + restore gate v0.8c
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Execute PostgreSQL v0.8c corrected HA gate
+        run: bash mmo-production-v0.8/run-postgres-production-v0.8c.sh
+      - name: Upload PostgreSQL production-promotion evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-production-promotion-v0.8c
+          path: /tmp/fotn-lab/reports/*
+          if-no-files-found: warn
