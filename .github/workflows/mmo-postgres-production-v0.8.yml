@@ -1,0 +1,239 @@
+name: MMO PostgreSQL Production Promotion v0.8
+
+on:
+  push:
+    branches: [mmo-persistence-production-gates-v0.8]
+    paths:
+      - 'mmo-production-v0.8/run-postgres-production-v0.8.mjs'
+      - '.github/workflows/mmo-postgres-production-v0.8.yml'
+      - 'mmo-hearing-payload-v2/**'
+
+permissions:
+  contents: read
+
+jobs:
+  postgres_production_gate:
+    name: PostgreSQL 18.4 representative HA + restore gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Restore exact v0.6/v0.7 lab contract
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/fotn-lab
+          : > /tmp/fotn-lab.zip
+          for f in mmo-hearing-payload-v2/part*.b64; do base64 --decode "$f" >> /tmp/fotn-lab.zip; done
+          echo 'aa535a41683096d9bf5056b4ab7502da7821a23b811ff6871e3b4531f6710919  /tmp/fotn-lab.zip' | sha256sum -c -
+          unzip -q /tmp/fotn-lab.zip -d /tmp/fotn-lab
+          mkdir -p /tmp/fotn-lab/reports
+          cp mmo-scale-v0.7/scale-blue-fixture.mjs /tmp/fotn-lab/scripts/
+          cp mmo-production-v0.8/run-postgres-production-v0.8.mjs /tmp/fotn-lab/scripts/
+          cd /tmp/fotn-lab
+          npm install --no-save pg@8
+          npm run all
+      - name: Generate private CA and TLS server certificate
+        run: |
+          set -euxo pipefail
+          docker pull postgres:18.4
+          PG_UID=$(docker run --rm postgres:18.4 id -u postgres)
+          PG_GID=$(docker run --rm postgres:18.4 id -g postgres)
+          mkdir -p /tmp/pgcerts
+          openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj '/CN=FOTN-PG-CA' -keyout /tmp/pgcerts/ca.key -out /tmp/pgcerts/ca.crt
+          openssl req -newkey rsa:2048 -nodes -subj '/CN=localhost' -keyout /tmp/pgcerts/server.key -out /tmp/pgcerts/server.csr
+          cat >/tmp/pgcerts/server.ext <<'EXT'
+          subjectAltName=DNS:localhost,DNS:pg-primary,DNS:pg-standby,DNS:pg-rejoin,DNS:pg-restored,IP:127.0.0.1
+          extendedKeyUsage=serverAuth
+          EXT
+          openssl x509 -req -days 2 -in /tmp/pgcerts/server.csr -CA /tmp/pgcerts/ca.crt -CAkey /tmp/pgcerts/ca.key -CAcreateserial -extfile /tmp/pgcerts/server.ext -out /tmp/pgcerts/server.crt
+          sudo chown "$PG_UID:$PG_GID" /tmp/pgcerts/server.key
+          chmod 600 /tmp/pgcerts/server.key
+          chmod 644 /tmp/pgcerts/server.crt /tmp/pgcerts/ca.crt
+      - name: Start TLS primary and establish least-privilege schema
+        run: |
+          set -euxo pipefail
+          docker network create fotn-pg
+          docker volume create pg-primary-data
+          docker run -d --name pg-primary --network fotn-pg -p 5432:5432 \
+            -e POSTGRES_PASSWORD=admin-pass -e PGDATA=/var/lib/postgresql/data \
+            -v pg-primary-data:/var/lib/postgresql -v /tmp/pgcerts:/certs:ro \
+            postgres:18.4 -c listen_addresses='*' -c ssl=on -c ssl_cert_file=/certs/server.crt -c ssl_key_file=/certs/server.key \
+            -c wal_level=replica -c max_wal_senders=10 -c hot_standby=on
+          for i in $(seq 1 60); do docker exec pg-primary pg_isready -U postgres && break; sleep 2; done
+          docker exec pg-primary bash -lc 'cat > "$PGDATA/pg_hba.conf" <<HBA
+          local all all trust
+          hostssl replication replicator 0.0.0.0/0 scram-sha-256
+          hostssl all all 0.0.0.0/0 scram-sha-256
+          host all all 0.0.0.0/0 reject
+          HBA
+          '
+          docker exec pg-primary psql -U postgres -v ON_ERROR_STOP=1 -c "select pg_reload_conf();"
+          docker exec pg-primary psql -U postgres -v ON_ERROR_STOP=1 -c "create role replicator with replication login password 'repl-pass';"
+          docker exec pg-primary psql -U postgres -v ON_ERROR_STOP=1 -c "create role fotn_app login password 'fotn-app-pass' nosuperuser nocreatedb nocreaterole noreplication;"
+          docker exec -i pg-primary psql -U postgres -v ON_ERROR_STOP=1 < /tmp/fotn-lab/adapters/postgres-event-store-v0.3.sql
+          docker exec -i pg-primary psql -U postgres -v ON_ERROR_STOP=1 <<'SQL'
+          REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+          GRANT USAGE ON SCHEMA public TO fotn_app;
+          GRANT SELECT,INSERT,UPDATE,DELETE ON mmo_event_streams,mmo_event_stream_events,mmo_event_stream_snapshots,mmo_projection_checkpoints TO fotn_app;
+          CREATE TABLE IF NOT EXISTS mmo_projection_stream_counts(stream_id text PRIMARY KEY,event_count bigint NOT NULL,last_revision bigint NOT NULL,rebuilt_at timestamptz NOT NULL DEFAULT now());
+          GRANT SELECT,INSERT,UPDATE,DELETE ON mmo_projection_stream_counts TO fotn_app;
+          SQL
+      - name: Build streaming standby and enable synchronous remote-apply policy
+        run: |
+          set -euxo pipefail
+          docker volume create pg-standby-data
+          docker run --rm --network fotn-pg --user postgres \
+            -e PGPASSWORD=repl-pass -v pg-standby-data:/var/lib/postgresql -v /tmp/pgcerts:/certs:ro \
+            postgres:18.4 bash -lc '
+              mkdir -p /var/lib/postgresql/data && chmod 700 /var/lib/postgresql/data;
+              pg_basebackup -d "host=pg-primary port=5432 user=replicator sslmode=verify-full sslrootcert=/certs/ca.crt" -D /var/lib/postgresql/data -Fp -Xs -P;
+              touch /var/lib/postgresql/data/standby.signal;
+              echo "primary_conninfo = '\''host=pg-primary port=5432 user=replicator password=repl-pass application_name=pg-standby sslmode=verify-full sslrootcert=/certs/ca.crt'\''" >> /var/lib/postgresql/data/postgresql.auto.conf'
+          docker run -d --name pg-standby --network fotn-pg -p 5433:5432 \
+            -e PGDATA=/var/lib/postgresql/data -v pg-standby-data:/var/lib/postgresql -v /tmp/pgcerts:/certs:ro \
+            postgres:18.4 -c listen_addresses='*' -c ssl=on -c ssl_cert_file=/certs/server.crt -c ssl_key_file=/certs/server.key -c hot_standby=on
+          for i in $(seq 1 60); do docker exec pg-standby pg_isready -U postgres && break; sleep 2; done
+          docker exec pg-primary psql -U postgres -v ON_ERROR_STOP=1 -c "alter system set synchronous_standby_names='FIRST 1 (pg-standby)';"
+          docker exec pg-primary psql -U postgres -v ON_ERROR_STOP=1 -c "alter system set synchronous_commit='remote_apply'; select pg_reload_conf();"
+          ok=0
+          for i in $(seq 1 60); do
+            row=$(docker exec pg-primary psql -At -U postgres -c "select state||':'||sync_state from pg_stat_replication where application_name='pg-standby';")
+            echo "$row"
+            if [ "$row" = "streaming:sync" ]; then ok=1; break; fi
+            sleep 2
+          done
+          test "$ok" = 1
+      - name: Write Blue fixture, migrate snapshot, and rebuild projection over verified TLS
+        working-directory: /tmp/fotn-lab
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGUSER: fotn_app
+          PGPASSWORD: fotn-app-pass
+          PGDATABASE: postgres
+          PGSSLROOTCERT: /tmp/pgcerts/ca.crt
+          FOTN_PROD_TAIL_COUNT: '1000'
+          FOTN_STREAM_ID: prod:blue:v0.8:${{ github.run_id }}
+        run: |
+          set -euxo pipefail
+          FOTN_REPORT_FILE=/tmp/fotn-lab/reports/pg-primary-write.json node scripts/run-postgres-production-v0.8.mjs write
+          FOTN_REPORT_FILE=/tmp/fotn-lab/reports/pg-evolution.json node scripts/run-postgres-production-v0.8.mjs evolve
+          docker exec pg-primary psql -At -U postgres -c "select json_build_object('replication',(select coalesce(json_agg(row_to_json(r)),'[]'::json) from (select application_name,state,sync_state,write_lsn,flush_lsn,replay_lsn from pg_stat_replication) r),'wal',(select row_to_json(w) from (select wal_records,wal_fpi,wal_bytes from pg_stat_wal) w));" > /tmp/fotn-lab/reports/pg-observability-before-failover.json
+      - name: Force failover, fence old primary, and prove client recovery
+        working-directory: /tmp/fotn-lab
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5433'
+          PGUSER: fotn_app
+          PGPASSWORD: fotn-app-pass
+          PGDATABASE: postgres
+          PGSSLROOTCERT: /tmp/pgcerts/ca.crt
+          FOTN_PROD_TAIL_COUNT: '1000'
+          FOTN_STREAM_ID: prod:blue:v0.8:${{ github.run_id }}
+        run: |
+          set -euxo pipefail
+          docker stop pg-primary
+          docker network disconnect fotn-pg pg-primary || true
+          docker exec -u postgres pg-standby pg_ctl -D /var/lib/postgresql/data promote -w
+          for i in $(seq 1 30); do [ "$(docker exec pg-standby psql -At -U postgres -c 'select pg_is_in_recovery();')" = "f" ] && break; sleep 2; done
+          docker exec pg-standby psql -U postgres -v ON_ERROR_STOP=1 -c "alter system reset synchronous_standby_names; alter system set synchronous_commit='on'; select pg_reload_conf();"
+          FOTN_REPORT_FILE=/tmp/fotn-lab/reports/pg-after-failover.json node scripts/run-postgres-production-v0.8.mjs verify
+          FOTN_PROBE_LABEL=failover FOTN_REPORT_FILE=/tmp/fotn-lab/reports/pg-failover-probe.json node scripts/run-postgres-production-v0.8.mjs probe
+          echo '{"oldPrimary":"STOPPED_AND_NETWORK_DISCONNECTED","policy":"explicit fencing before rebuild"}' > /tmp/fotn-lab/reports/pg-old-primary-fence.json
+      - name: Rebuild old primary as new standby and re-establish synchronous replication
+        run: |
+          set -euxo pipefail
+          docker rm pg-primary
+          docker volume rm pg-primary-data
+          docker volume create pg-rejoin-data
+          docker run --rm --network fotn-pg --user postgres \
+            -e PGPASSWORD=repl-pass -v pg-rejoin-data:/var/lib/postgresql -v /tmp/pgcerts:/certs:ro \
+            postgres:18.4 bash -lc '
+              mkdir -p /var/lib/postgresql/data && chmod 700 /var/lib/postgresql/data;
+              pg_basebackup -d "host=pg-standby port=5432 user=replicator sslmode=verify-full sslrootcert=/certs/ca.crt" -D /var/lib/postgresql/data -Fp -Xs -P;
+              touch /var/lib/postgresql/data/standby.signal;
+              echo "primary_conninfo = '\''host=pg-standby port=5432 user=replicator password=repl-pass application_name=pg-rejoin sslmode=verify-full sslrootcert=/certs/ca.crt'\''" >> /var/lib/postgresql/data/postgresql.auto.conf'
+          docker run -d --name pg-rejoin --network fotn-pg -p 5434:5432 \
+            -e PGDATA=/var/lib/postgresql/data -v pg-rejoin-data:/var/lib/postgresql -v /tmp/pgcerts:/certs:ro \
+            postgres:18.4 -c listen_addresses='*' -c ssl=on -c ssl_cert_file=/certs/server.crt -c ssl_key_file=/certs/server.key -c hot_standby=on
+          for i in $(seq 1 60); do docker exec pg-rejoin pg_isready -U postgres && break; sleep 2; done
+          docker exec pg-standby psql -U postgres -v ON_ERROR_STOP=1 -c "alter system set synchronous_standby_names='FIRST 1 (pg-rejoin)'; alter system set synchronous_commit='remote_apply'; select pg_reload_conf();"
+          ok=0
+          for i in $(seq 1 60); do row=$(docker exec pg-standby psql -At -U postgres -c "select state||':'||sync_state from pg_stat_replication where application_name='pg-rejoin';"); [ "$row" = "streaming:sync" ] && { ok=1; break; }; sleep 2; done
+          test "$ok" = 1
+      - name: Append after rejoin and prove replicated copy
+        working-directory: /tmp/fotn-lab
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5433'
+          PGUSER: fotn_app
+          PGPASSWORD: fotn-app-pass
+          PGDATABASE: postgres
+          PGSSLROOTCERT: /tmp/pgcerts/ca.crt
+          FOTN_PROD_TAIL_COUNT: '1000'
+          FOTN_STREAM_ID: prod:blue:v0.8:${{ github.run_id }}
+          FOTN_PROBE_LABEL: rejoin
+        run: |
+          set -euxo pipefail
+          FOTN_REPORT_FILE=/tmp/fotn-lab/reports/pg-rejoin-probe.json node scripts/run-postgres-production-v0.8.mjs probe
+          test "$(docker exec pg-rejoin psql -At -U postgres -c "select count(*) from mmo_event_stream_events where stream_id='prod:probe:rejoin:${GITHUB_RUN_ID}';")" = "1"
+      - name: Destructive base-backup restore into a fresh PostgreSQL service
+        run: |
+          set -euxo pipefail
+          docker exec pg-standby psql -U postgres -v ON_ERROR_STOP=1 -c "alter system reset synchronous_standby_names; alter system set synchronous_commit='on'; select pg_reload_conf();"
+          docker volume create pg-restore-data
+          start=$(date +%s%3N)
+          docker run --rm --network fotn-pg --user postgres \
+            -e PGPASSWORD=repl-pass -v pg-restore-data:/var/lib/postgresql -v /tmp/pgcerts:/certs:ro \
+            postgres:18.4 bash -lc 'mkdir -p /var/lib/postgresql/data && chmod 700 /var/lib/postgresql/data && pg_basebackup -d "host=pg-standby port=5432 user=replicator sslmode=verify-full sslrootcert=/certs/ca.crt" -D /var/lib/postgresql/data -Fp -Xs -P'
+          end=$(date +%s%3N); echo $((end-start)) > /tmp/fotn-lab/reports/pg-backup-duration-ms.txt
+          docker rm -f pg-standby pg-rejoin
+          docker volume rm pg-standby-data pg-rejoin-data
+          start=$(date +%s%3N)
+          docker run -d --name pg-restored --network fotn-pg -p 5435:5432 \
+            -e PGDATA=/var/lib/postgresql/data -v pg-restore-data:/var/lib/postgresql -v /tmp/pgcerts:/certs:ro \
+            postgres:18.4 -c listen_addresses='*' -c ssl=on -c ssl_cert_file=/certs/server.crt -c ssl_key_file=/certs/server.key -c synchronous_standby_names='' -c synchronous_commit=on
+          for i in $(seq 1 60); do docker exec pg-restored pg_isready -U postgres && break; sleep 2; done
+          end=$(date +%s%3N); echo $((end-start)) > /tmp/fotn-lab/reports/pg-restore-start-duration-ms.txt
+      - name: Verify restored history, migration, projection, and probes
+        working-directory: /tmp/fotn-lab
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5435'
+          PGUSER: fotn_app
+          PGPASSWORD: fotn-app-pass
+          PGDATABASE: postgres
+          PGSSLROOTCERT: /tmp/pgcerts/ca.crt
+          FOTN_PROD_TAIL_COUNT: '1000'
+          FOTN_STREAM_ID: prod:blue:v0.8:${{ github.run_id }}
+        run: |
+          set -euxo pipefail
+          FOTN_REPORT_FILE=/tmp/fotn-lab/reports/pg-after-restore.json node scripts/run-postgres-production-v0.8.mjs verify
+          test "$(docker exec pg-restored psql -At -U postgres -c "select count(*) from mmo_event_stream_events where stream_id='prod:probe:failover:${GITHUB_RUN_ID}';")" = "1"
+          test "$(docker exec pg-restored psql -At -U postgres -c "select count(*) from mmo_event_stream_events where stream_id='prod:probe:rejoin:${GITHUB_RUN_ID}';")" = "1"
+          test "$(docker exec pg-restored psql -At -U postgres -c "select state_data->>'schemaVersion' from mmo_event_stream_snapshots where stream_id='prod:blue:v0.8:${GITHUB_RUN_ID}';")" = "2"
+          test "$(docker exec pg-restored psql -At -U postgres -c "select event_count from mmo_projection_stream_counts where stream_id='prod:blue:v0.8:${GITHUB_RUN_ID}';")" = "1012"
+          docker exec pg-restored psql -At -U postgres -c "select json_build_object('ssl',(select count(*) from pg_stat_ssl where ssl),'database',(select row_to_json(d) from (select numbackends,xact_commit,blks_read,blks_hit from pg_stat_database where datname='postgres') d),'wal',(select row_to_json(w) from (select wal_records,wal_fpi,wal_bytes from pg_stat_wal) w));" > /tmp/fotn-lab/reports/pg-observability-after-restore.json
+      - name: Build bounded promotion evidence
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          r=pathlib.Path('/tmp/fotn-lab/reports')
+          before=json.loads((r/'pg-primary-write.json').read_text())
+          fail=json.loads((r/'pg-after-failover.json').read_text())
+          restore=json.loads((r/'pg-after-restore.json').read_text())
+          assert before['result']['baseBlueFinalHash']==fail['result']['baseBlueFinalHash']==restore['result']['baseBlueFinalHash']=='e3cede0e0bd1a9d84738f06f079a6e7756f785142ee93bcfe0acfca4bf25a4c4'
+          assert before['result']['finalDigest']==fail['result']['finalDigest']==restore['result']['finalDigest']=='fd941724c74dcdd28319432f479e8be96377fd304ed7cd22d18bd0551ff6a63f'
+          out={'status':'PASS_POSTGRESQL_PRODUCTION_PROMOTION_HARNESS_001_TECHNICAL_GATES','database':'PostgreSQL 18.4','policy':'synchronous_commit=remote_apply during HA acceptance writes','checks':{'tlsVerifiedByPrivateCA':True,'leastPrivilegeApplicationRole':True,'primaryStandbyStreaming':True,'synchronousRemoteApply':True,'forcedFailover':True,'oldPrimaryFenced':True,'oldPrimaryRebuiltAsStandby':True,'postRejoinReplication':True,'destructiveBaseBackupRestore':True,'blueCanonicalHashRecovered':True,'scaleDigestRecovered':True,'metadataEvolutionCompatible':True,'snapshotMigrationV2':True,'projectionRebuild':True,'observabilityEvidenceCaptured':True},'baseBlueFinalHash':restore['result']['baseBlueFinalHash'],'finalDigest1000Tail':restore['result']['finalDigest'],'backupDurationMs':int((r/'pg-backup-duration-ms.txt').read_text()),'restoreStartDurationMs':int((r/'pg-restore-start-duration-ms.txt').read_text()),'promotion':'HOLD_PRODUCTION_AUTHORITY_COST_MAINTENANCE_GATE_NOT_MEASURED','boundary':'Technical HA/recovery/security/evolution gates passed on ephemeral GitHub-hosted Docker infrastructure. This is not representative production cost or long-duration operations evidence.'}
+          (r/'postgres-production-promotion-v0.8.json').write_text(json.dumps(out,indent=2))
+          print(json.dumps(out,indent=2))
+          PY
+      - name: Upload PostgreSQL production-promotion evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-production-promotion-v0.8
+          path: /tmp/fotn-lab/reports/*
+          if-no-files-found: error
