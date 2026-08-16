@@ -1,0 +1,36 @@
+name: MMO KurrentDB Secure HA Reference v0.8b
+
+on:
+  push:
+    branches: [mmo-persistence-production-gates-v0.8]
+    paths:
+      - 'mmo-production-v0.8/run-kurrent-ha-v0.8b.sh'
+      - 'mmo-production-v0.8/run-kurrent-ha-v0.8.mjs'
+      - 'mmo-production-v0.8/kurrent-secure-cluster-v0.8b.yml'
+      - 'mmo-production-v0.8/kurrent-vars-v0.8.env'
+      - '.github/workflows/mmo-kurrent-ha-reference-v0.8b.yml'
+      - 'mmo-hearing-payload-v2/**'
+      - 'mmo-scale-v0.7/**'
+
+permissions:
+  contents: read
+
+jobs:
+  kurrent_secure_ha_reference:
+    name: KurrentDB secure three-node quorum reference gate v0.8b
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Execute repaired secure KurrentDB quorum gate
+        run: bash mmo-production-v0.8/run-kurrent-ha-v0.8b.sh
+      - name: Upload KurrentDB secure HA reference evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kurrent-secure-ha-reference-v0.8b
+          path: /tmp/fotn-lab/reports/*
+          if-no-files-found: warn
