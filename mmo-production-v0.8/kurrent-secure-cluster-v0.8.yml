@@ -1,0 +1,89 @@
+services:
+  setup:
+    image: eventstore/es-gencert-cli:1.0.2
+    entrypoint: bash
+    user: "1000:1000"
+    command: >-
+      -lc 'set -e; mkdir -p /certs; cd /certs;
+      if [ ! -f ca/ca.crt ]; then
+        es-gencert-cli create-ca;
+        es-gencert-cli create-node -out ./node1 -ip-addresses 127.0.0.1,172.30.240.11 -dns-names localhost,node1.kurrentdb;
+        es-gencert-cli create-node -out ./node2 -ip-addresses 127.0.0.1,172.30.240.12 -dns-names localhost,node2.kurrentdb;
+        es-gencert-cli create-node -out ./node3 -ip-addresses 127.0.0.1,172.30.240.13 -dns-names localhost,node3.kurrentdb;
+        find . -type f -exec chmod 600 {} \;;
+      fi'
+    volumes:
+      - ${KURRENT_CERT_DIR:-./kurrent-certs}:/certs
+    network_mode: none
+
+  node1.kurrentdb: &node
+    image: docker.kurrent.io/kurrent-latest/kurrentdb:latest
+    container_name: node1.kurrentdb
+    env_file: [./kurrent-vars-v0.8.env]
+    environment:
+      KURRENTDB_REPLICATION_IP: 172.30.240.11
+      KURRENTDB_ADVERTISE_NODE_PORT_TO_CLIENT_AS: 2111
+      KURRENTDB_GOSSIP_SEED: 172.30.240.12:2113,172.30.240.13:2113
+      KURRENTDB_TRUSTED_ROOT_CERTIFICATES_PATH: /certs/ca
+      KURRENTDB_CERTIFICATE_FILE: /certs/node1/node.crt
+      KURRENTDB_CERTIFICATE_PRIVATE_KEY_FILE: /certs/node1/node.key
+    ports: ["2111:2113"]
+    volumes:
+      - ${KURRENT_CERT_DIR:-./kurrent-certs}:/certs:ro
+      - kurrent-node1-data:/var/lib/kurrentdb
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks:
+      clusternetwork:
+        ipv4_address: 172.30.240.11
+
+  node2.kurrentdb:
+    <<: *node
+    container_name: node2.kurrentdb
+    environment:
+      KURRENTDB_REPLICATION_IP: 172.30.240.12
+      KURRENTDB_ADVERTISE_NODE_PORT_TO_CLIENT_AS: 2112
+      KURRENTDB_GOSSIP_SEED: 172.30.240.11:2113,172.30.240.13:2113
+      KURRENTDB_TRUSTED_ROOT_CERTIFICATES_PATH: /certs/ca
+      KURRENTDB_CERTIFICATE_FILE: /certs/node2/node.crt
+      KURRENTDB_CERTIFICATE_PRIVATE_KEY_FILE: /certs/node2/node.key
+    ports: ["2112:2113"]
+    volumes:
+      - ${KURRENT_CERT_DIR:-./kurrent-certs}:/certs:ro
+      - kurrent-node2-data:/var/lib/kurrentdb
+    networks:
+      clusternetwork:
+        ipv4_address: 172.30.240.12
+
+  node3.kurrentdb:
+    <<: *node
+    container_name: node3.kurrentdb
+    environment:
+      KURRENTDB_REPLICATION_IP: 172.30.240.13
+      KURRENTDB_ADVERTISE_NODE_PORT_TO_CLIENT_AS: 2113
+      KURRENTDB_GOSSIP_SEED: 172.30.240.11:2113,172.30.240.12:2113
+      KURRENTDB_TRUSTED_ROOT_CERTIFICATES_PATH: /certs/ca
+      KURRENTDB_CERTIFICATE_FILE: /certs/node3/node.crt
+      KURRENTDB_CERTIFICATE_PRIVATE_KEY_FILE: /certs/node3/node.key
+    ports: ["2113:2113"]
+    volumes:
+      - ${KURRENT_CERT_DIR:-./kurrent-certs}:/certs:ro
+      - kurrent-node3-data:/var/lib/kurrentdb
+    networks:
+      clusternetwork:
+        ipv4_address: 172.30.240.13
+
+networks:
+  clusternetwork:
+    name: kurrentdb-v08.local
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.240.0/24
+
+volumes:
+  kurrent-node1-data:
+  kurrent-node2-data:
+  kurrent-node3-data:
