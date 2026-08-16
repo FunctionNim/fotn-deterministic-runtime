@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# v0.8c trigger marker: synchronous standby identifiers normalized to SQL-safe application names.
 set -euo pipefail
 ROOT="${GITHUB_WORKSPACE:-$(pwd)}"
 TMP=/tmp/run-postgres-production-v0.8c.generated.sh
