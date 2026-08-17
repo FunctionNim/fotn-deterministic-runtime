@@ -1,0 +1,39 @@
+name: MMO KurrentDB Secure 3-Node HA v0.8e
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [mmo-persistence-production-gates-v0.8e]
+    paths:
+      - 'mmo-production-v0.8/run-kurrent-ha-v0.8e.sh'
+      - 'mmo-production-v0.8/run-kurrent-ha-v0.8c.sh'
+      - 'mmo-production-v0.8/run-kurrent-ha-v0.8.mjs'
+      - 'mmo-production-v0.8/kurrent-secure-cluster-v0.8c.yml'
+      - 'mmo-production-v0.8/kurrent-vars-v0.8.env'
+      - '.github/workflows/mmo-kurrent-ha-secure-v0.8e.yml'
+      - 'mmo-hearing-payload-v2/**'
+      - 'mmo-scale-v0.7/**'
+
+permissions:
+  contents: read
+
+jobs:
+  kurrent_secure_ha_v08e:
+    name: KurrentDB v0.8e certificate boundary / unchanged v0.8c HA semantics
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Execute certificate-boundary repair and secure 3-node HA gate
+        run: bash mmo-production-v0.8/run-kurrent-ha-v0.8e.sh
+      - name: Upload KurrentDB v0.8e secure HA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kurrent-secure-ha-v0.8e
+          path: /tmp/fotn-lab/reports/*
+          if-no-files-found: warn
+          retention-days: 30
