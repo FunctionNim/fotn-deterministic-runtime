@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  SCE_NATURAL_EXPIRY_WOUND,
+  SCE_RIVER_PACKETS,
+  SCE_TIMER_REGISTRY,
   applySceIntent,
   createInitialSceState,
   isAssistanceReportEligible,
+  packetForTurn,
   type RiverCard,
 } from '../../src/sce/contracts.js';
 import {
@@ -10,72 +14,100 @@ import {
   serializeStartingArcScaffold,
 } from '../../src/sce/starting-arc-fixture.js';
 
-describe('Seven Civic Engineers source-bound runtime contracts', () => {
-  it('creates a seven-slot River without inventing card order', () => {
-    const state = createInitialSceState();
+function advanceToReturn(state = createInitialSceState()) {
+  let current = state;
+  for (let i = 0; i < 4; i += 1) {
+    const result = applySceIntent(current, { type: 'AdvancePhase' });
+    expect(result.outcome).toBe('COMMIT');
+    current = result.state;
+  }
+  expect(current.phase).toBe('RETURN');
+  return current;
+}
 
-    expect(state.river).toHaveLength(7);
-    expect(state.river.map((slot) => slot.slotIndex)).toEqual([
-      1, 2, 3, 4, 5, 6, 7,
+describe('Seven Civic Engineers current Living River contracts', () => {
+  it('uses the current nine-family timer registry from the Living River Timers tab', () => {
+    expect(SCE_TIMER_REGISTRY).toEqual({
+      REC: 4,
+      REQ: 2,
+      FND: 3,
+      MAN: 3,
+      RES: 3,
+      BST: 4,
+      SCT: 3,
+      AWP: null,
+      QST: 4,
+    });
+
+    expect(SCE_NATURAL_EXPIRY_WOUND.BST).toBe(false);
+    expect(SCE_NATURAL_EXPIRY_WOUND.AWP).toBe(null);
+  });
+
+  it('contains exactly thirty authored seven-slot packets', () => {
+    expect(SCE_RIVER_PACKETS).toHaveLength(30);
+    expect(SCE_RIVER_PACKETS.every((packet) => packet.length === 7)).toBe(true);
+    expect(packetForTurn(1)).toEqual([
+      'REC','REQ','FND','MAN','REC','REQ','FND',
     ]);
-    expect(state.river.every((slot) => slot.card === null)).toBe(true);
+    expect(packetForTurn(30)).toEqual([
+      'BST','AWP','AWP','BST','AWP','BST','AWP',
+    ]);
   });
 
-  it('advances through HOLD → RELATE → UNDERSTAND → BECOME → RETURN deterministically', () => {
-    let state = createInitialSceState();
-
-    for (const expected of ['RELATE', 'UNDERSTAND', 'BECOME', 'RETURN']) {
-      const result = applySceIntent(state, { type: 'AdvancePhase' });
-      expect(result.outcome).toBe('COMMIT');
-      state = result.state;
-      expect(state.phase).toBe(expected);
-    }
-
-    const nextTurn = applySceIntent(state, { type: 'AdvancePhase' });
-    expect(nextTurn.outcome).toBe('COMMIT');
-    expect(nextTurn.state.turn).toBe(2);
-    expect(nextTurn.state.phase).toBe('HOLD');
-  });
-
-  it('HALTs River distribution while the governing schedule is a source recovery gap', () => {
+  it('opens Turn 1 with the authored T01 seven-slot packet', () => {
     const state = createInitialSceState();
-    const before = JSON.stringify({
-      turn: state.turn,
-      phase: state.phase,
-      river: state.river,
-    });
 
-    const result = applySceIntent(state, {
-      type: 'AttemptRiverDistribution',
-    });
-
-    expect(result.outcome).toBe('HALT');
-    expect(result.code).toBe('SOURCE_GAP:RIVER_DISTRIBUTION_SCHEDULE');
-    expect(
-      JSON.stringify({
-        turn: result.state.turn,
-        phase: result.state.phase,
-        river: result.state.river,
-      }),
-    ).toBe(before);
+    expect(state.river.map((slot) => slot.card?.family)).toEqual([
+      'REC','REQ','FND','MAN','REC','REQ','FND',
+    ]);
+    expect(state.river.map((slot) => slot.card?.timerTurnsRemaining)).toEqual([
+      4,2,3,3,4,2,3,
+    ]);
   });
 
-  it('HALTs timer resolution while the nine-card timer table is a source recovery gap', () => {
-    const state = createInitialSceState();
-    const result = applySceIntent(state, {
-      type: 'AttemptPositionTimerResolution',
-      slotIndex: 1,
-    });
+  it('requires RETURN River resolution before advancing to the next turn', () => {
+    const state = advanceToReturn();
 
-    expect(result.outcome).toBe('HALT');
-    expect(result.code).toBe('SOURCE_GAP:POSITION_TIMER_TABLE');
+    const denied = applySceIntent(state, { type: 'AdvancePhase' });
+    expect(denied.outcome).toBe('DENY');
+    expect(denied.code).toBe('RETURN_RIVER_NOT_RESOLVED');
+
+    const resolved = applySceIntent(state, { type: 'ResolveReturnRiver' });
+    expect(resolved.outcome).toBe('COMMIT');
+
+    const advanced = applySceIntent(resolved.state, { type: 'AdvancePhase' });
+    expect(advanced.outcome).toBe('COMMIT');
+    expect(advanced.state.turn).toBe(2);
+    expect(advanced.state.phase).toBe('HOLD');
+  });
+
+  it('uses the next-turn packet slot-by-slot after timer expiration', () => {
+    let state = advanceToReturn();
+
+    let result = applySceIntent(state, { type: 'ResolveReturnRiver' });
+    expect(result.outcome).toBe('COMMIT');
+    result = applySceIntent(result.state, { type: 'AdvancePhase' });
+    expect(result.outcome).toBe('COMMIT');
+
+    state = advanceToReturn(result.state);
+    result = applySceIntent(state, { type: 'ResolveReturnRiver' });
+
+    expect(result.outcome).toBe('COMMIT');
+
+    // Both Turn-1 Requests expire on RETURN of Turn 2.
+    // The Turn-3 packet's entries for those exact slots are both RES.
+    expect(result.state.river[1].card?.family).toBe('RES');
+    expect(result.state.river[5].card?.family).toBe('RES');
+    expect(result.state.river[1].card?.timerTurnsRemaining).toBe(3);
+    expect(result.state.river[5].card?.timerTurnsRemaining).toBe(3);
   });
 
   it('makes Assistance-report eligibility depend on legal interaction plus actual change', () => {
     const untouched: RiverCard = {
       cardId: 'card:example',
-      cardType: 'EXAMPLE',
-      timerTurnsRemaining: null,
+      family: 'REC',
+      timerTurnsRemaining: 4,
+      admittedForTurn: 1,
       interaction: { legallyInteracted: false, changed: false },
     };
 
@@ -94,18 +126,17 @@ describe('Seven Civic Engineers source-bound runtime contracts', () => {
     expect(isAssistanceReportEligible(changed)).toBe(true);
   });
 
-  it('executes the same six-turn structural qualification scaffold identically', () => {
+  it('executes the same six-turn Starting Arc runtime slice identically', () => {
     const first = runStartingArcQualificationScaffold();
     const second = runStartingArcQualificationScaffold();
 
     expect(first.completedTurnCount).toBe(6);
     expect(first.finalState.turn).toBe(7);
     expect(first.finalState.phase).toBe('HOLD');
-    expect(first.finalState.audit).toHaveLength(30);
-    expect(first.qualificationStatus).toBe('HELD_SOURCE_GAPS');
+    expect(first.qualificationStatus).toBe('RUNTIME_SLICE_PASS');
+    expect(first.fullGameplayQualification).toBe('PENDING_OTHER_GAME_SYSTEMS');
+    expect(first.turns).toHaveLength(6);
 
-    expect(first.sourceGapChecks.riverDistribution.outcome).toBe('HALT');
-    expect(first.sourceGapChecks.positionTimer.outcome).toBe('HALT');
     expect(serializeStartingArcScaffold(first)).toBe(
       serializeStartingArcScaffold(second),
     );
