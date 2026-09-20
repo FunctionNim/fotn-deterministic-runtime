@@ -2,63 +2,88 @@ import {
   applySceIntent,
   createInitialSceState,
   type SceGameState,
-  type SceTransitionResult,
 } from './contracts.js';
 
+export interface StartingArcTurnSnapshot {
+  completedTurn: number;
+  riverFamilies: (string | null)[];
+  riverTimers: (number | null)[];
+  removedFromGameCount: number;
+}
+
 export interface StartingArcQualificationScaffold {
-  qualificationStatus: 'HELD_SOURCE_GAPS';
+  qualificationStatus: 'RUNTIME_SLICE_PASS';
+  fullGameplayQualification: 'PENDING_OTHER_GAME_SYSTEMS';
   completedTurnCount: 6;
   finalState: SceGameState;
-  sourceGapChecks: {
-    riverDistribution: SceTransitionResult;
-    positionTimer: SceTransitionResult;
-  };
+  turns: StartingArcTurnSnapshot[];
 }
 
 /**
- * Executes only the source-qualified structural portion of the Starting Arc.
+ * Runs the source-qualified structural Living River layer for the default
+ * six-turn Starting Arc with no voluntary River interactions.
  *
- * It proves the five-movement turn skeleton can advance deterministically
- * for six complete turns. It deliberately does not invent River distribution
- * or timer values. Those checks must HALT while their governing sources remain
- * unrecovered.
+ * This is intentionally narrower than full gameplay qualification: it executes
+ * the five-movement skeleton, current family timers, exact seven-slot packets,
+ * slot-indexed refill, environmental expiry, and deterministic replay.
  */
 export function runStartingArcQualificationScaffold(): StartingArcQualificationScaffold {
-  const initial = createInitialSceState();
+  let state = createInitialSceState();
+  const turns: StartingArcTurnSnapshot[] = [];
 
-  const riverDistribution = applySceIntent(initial, {
-    type: 'AttemptRiverDistribution',
-  });
+  for (let completedTurn = 1; completedTurn <= 6; completedTurn += 1) {
+    for (const expectedPhase of ['RELATE', 'UNDERSTAND', 'BECOME', 'RETURN'] as const) {
+      const advance = applySceIntent(state, { type: 'AdvancePhase' });
 
-  const positionTimer = applySceIntent(initial, {
-    type: 'AttemptPositionTimerResolution',
-    slotIndex: 1,
-  });
-
-  let state = initial;
-
-  for (let completedTurn = 0; completedTurn < 6; completedTurn += 1) {
-    for (let phaseAdvance = 0; phaseAdvance < 5; phaseAdvance += 1) {
-      const result = applySceIntent(state, { type: 'AdvancePhase' });
-
-      if (result.outcome !== 'COMMIT') {
+      if (advance.outcome !== 'COMMIT') {
         throw new Error(
-          `Starting Arc structural scaffold stopped unexpectedly: ${result.code ?? result.outcome}`,
+          `Starting Arc phase advance failed: ${advance.code ?? advance.outcome}`,
         );
       }
 
-      state = result.state;
+      state = advance.state;
+
+      if (state.phase !== expectedPhase) {
+        throw new Error(
+          `Expected phase ${expectedPhase}, received ${state.phase}`,
+        );
+      }
     }
+
+    const returnResult = applySceIntent(state, { type: 'ResolveReturnRiver' });
+
+    if (returnResult.outcome !== 'COMMIT') {
+      throw new Error(
+        `Starting Arc RETURN River resolution failed: ${returnResult.code ?? returnResult.outcome}`,
+      );
+    }
+
+    state = returnResult.state;
+
+    turns.push({
+      completedTurn,
+      riverFamilies: state.river.map((slot) => slot.card?.family ?? null),
+      riverTimers: state.river.map((slot) => slot.card?.timerTurnsRemaining ?? null),
+      removedFromGameCount: state.removedFromGame.length,
+    });
+
+    const nextTurn = applySceIntent(state, { type: 'AdvancePhase' });
+
+    if (nextTurn.outcome !== 'COMMIT') {
+      throw new Error(
+        `Starting Arc turn handoff failed: ${nextTurn.code ?? nextTurn.outcome}`,
+      );
+    }
+
+    state = nextTurn.state;
   }
 
   return {
-    qualificationStatus: 'HELD_SOURCE_GAPS',
+    qualificationStatus: 'RUNTIME_SLICE_PASS',
+    fullGameplayQualification: 'PENDING_OTHER_GAME_SYSTEMS',
     completedTurnCount: 6,
     finalState: state,
-    sourceGapChecks: {
-      riverDistribution,
-      positionTimer,
-    },
+    turns,
   };
 }
 
