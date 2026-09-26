@@ -2,7 +2,7 @@
 
 ## Status
 
-QUALIFICATION IMPLEMENTATION / NON-CANON / HUMAN WITNESS PENDING.
+QUALIFICATION IMPLEMENTATION / NON-CANON / PARTIAL HUMAN WITNESS � ORIGIN + RECEIPT RECOGNIZED.
 
 ## Purpose
 
@@ -91,3 +91,20 @@ Present the aperture to a human.
 Record the human response separately from the technical qualification.
 
 If the human cannot correctly identify the causal relationship, mark GamerLaStone SHAKE / NOT YET and repair only the aperture unless separate evidence shows the simulation itself is wrong.
+
+
+## Human Witness Receipt 001 — 2026-09-26
+
+Human response received:
+
+> “Yes I recognize a signal from civilization A was received by civilization B”
+
+Disposition: PARTIAL HUMAN WITNESS — ORIGIN + RECEIPT RECOGNIZED.
+
+The statement confirms source Civilization A, transmitted signal/influence, and receipt by Civilization B.
+
+It does not independently confirm that the witness recognized the no-physical-contact boundary, Civilization B's local authorship, or that B's local change was caused by the received influence.
+
+Overall GamerLaStone status therefore advances from AWAITING HUMAN WITNESS to SHAKE / NOT YET FULL WITNESS, with successful recognition of the core cross-civilization signal relation.
+
+Detailed receipt: qualification/GAMERLASTONE_APERTURE_TRIAL_001_HUMAN_WITNESS_001.md.
