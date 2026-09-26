@@ -2,9 +2,13 @@
 
 ## Status
 
-QUALIFICATION PASS / OWNER LOCK PENDING.
+QUALIFICATION PASS / OWNER LOCKED.
 
-No push, merge, deployment, production mutation, or change to the existing dirty local main worktree is authorized by this receipt.
+Owner authorization was granted in-chat to lock the tested Structural + Thermal simulation implementation and push its qualification branch for review/integration.
+
+The owner lock applies to tested implementation commit af508c16fd906adda821ee697cc46b788e81431f.
+
+No merge, deployment, production mutation, or change to the existing dirty local main worktree is authorized by this receipt.
 
 ## Target binding
 
@@ -162,13 +166,12 @@ This qualification does not resolve:
 
 IMPLEMENTATION SIMULATION RUNBOOK 001 — EXECUTED IN ISOLATION.
 
-QUALIFICATION PASS / OWNER LOCK PENDING.
+QUALIFICATION PASS / OWNER LOCKED.
 
-The isolated branch is ready for owner review.
-No remote branch has been created or updated by this qualification.
+The isolated branch is owner-locked and authorized for push to origin for review/integration.
 
 ## Next lawful action
 
-Owner review and lock of the implementation commit produced by this qualification.
-If accepted, decide separately whether to push pyramid-structural-thermal-simulation-v0-1 for review/integration.
+Push pyramid-structural-thermal-simulation-v0-1 to origin for review/integration.
+After push verification, preserve the remote branch identity and review status.
 Merge and deployment remain separate owner-authorized gates.
