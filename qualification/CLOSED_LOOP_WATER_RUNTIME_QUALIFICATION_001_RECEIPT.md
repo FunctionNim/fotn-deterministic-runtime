@@ -111,12 +111,17 @@ This qualification does not resolve or alter:
 
 ## Status
 
-QUALIFICATION PASS / OWNER LOCK PENDING.
+QUALIFICATION PASS / OWNER LOCKED.
+
+Owner authorization was granted in-chat to proceed from QUALIFICATION PASS / OWNER LOCK PENDING.
+The owner lock applies to tested implementation commit 68e8c124d54a816d16454ccbdd0e21d34428a555.
 
 The runtime has passed the bounded deterministic fixture set in an isolated worktree.
-No push, merge, deployment, or production mutation is authorized by this receipt.
+Authorization now extends to pushing the qualification branch for review/integration.
+No merge, deployment, production mutation, or direct main-branch modification is authorized by this receipt.
 
 ## Next lawful action
 
-Owner review of this receipt and the bound implementation commit.
-If accepted, lock CLOSED-LOOP WATER RUNTIME QUALIFICATION 001, then decide whether to push the branch / open a review path and integrate it into the wider deterministic runtime.
+Push branch water-runtime-qualification-v0-1 to origin for review/integration.
+After push verification, preserve the remote branch identity and review status.
+Merge or deployment remains a separate owner-authorized gate.
