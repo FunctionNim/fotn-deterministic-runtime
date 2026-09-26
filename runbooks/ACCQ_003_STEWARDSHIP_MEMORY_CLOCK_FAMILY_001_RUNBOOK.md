@@ -12,6 +12,7 @@
 - **Qualified source branch:** artificial-civilization-stewardship-memory-clock-001-v0-1
 - **Qualified source commit:** 69be1e4b63f3348e8ad468246c67ee80eb08d0eb
 - **Qualified source tree:** ffa115d33f8dd7faf997c5ed2218b68e008640ac
+- **Source-anchor rule:** Commit 69be1e4b63f3348e8ad468246c67ee80eb08d0eb is the executable qualification evidence anchor. The runbook may live on a later clean documentation-only descendant, provided the bounded executable/qualification files are byte-identical to the source anchor.
 - **Repository root:** C:\Users\dyron\OneDrive\Documents\GitHub\fotn-gamerlastone-aperture-001
 - **Remote identity:** https://github.com/FunctionNim/fotn-deterministic-runtime.git
 - **Drive matrix:** ARTIFICIAL CIVILIZATION CLOCK QUALIFICATION 001 — Runtime Contract Matrix v0.1
@@ -59,8 +60,9 @@ Reproduce and verify the bounded ACCQ-003 Stewardship / Memory clock-family qual
 
 - [ ] Repository target gate resolves to FunctionNim/fotn-deterministic-runtime.
 - [ ] Current branch is artificial-civilization-stewardship-memory-clock-001-v0-1.
-- [ ] HEAD is 69be1e4b63f3348e8ad468246c67ee80eb08d0eb before execution against the qualified source.
 - [ ] Worktree is clean before qualification execution.
+- [ ] Qualified source commit 69be1e4b63f3348e8ad468246c67ee80eb08d0eb resolves locally.
+- [ ] If HEAD is later than the source anchor, the bounded executable/qualification files match their blobs at the source anchor exactly.
 - [ ] Node.js and npm are available.
 - [ ] Python is available for runbook validation.
 - [ ] Google Drive matrix ID 1PJuiti13sCiQ5Ud7IkJiLwIIi0yvtzusTP1HYi5p03E is readable before any receipt write.
@@ -74,7 +76,7 @@ Reproduce and verify the bounded ACCQ-003 Stewardship / Memory clock-family qual
 - **Risk:** Provenance break. B-HIST-002 pointing directly to A-HIST-001 would erase Civilization B's local authorship boundary.
 - **Risk:** Regression. Existing ACCQ-002, GamerLaStone, typecheck, build, or full deterministic tests may fail.
 - **Risk:** Evidence drift. Recording PASS in Drive or Git before tests complete would create false qualification evidence.
-- **Stop immediately if:** repository identity, branch, or qualified source commit differs before execution.
+- **Stop immediately if:** repository identity or branch differs, the qualified source anchor does not resolve, or any bounded executable/qualification file differs from the source anchor before execution.
 - **Stop immediately if:** the worktree contains unexpected pre-existing changes.
 - **Stop immediately if:** ACCQ-002 source simulation hash changes during the extension.
 - **Stop immediately if:** B-HIST-002 bypasses B-HIST-001 and cites A-HIST-001 as its direct source.
@@ -95,18 +97,31 @@ Reproduce and verify the bounded ACCQ-003 Stewardship / Memory clock-family qual
 
 ### Phase 1 — Verify repository target
 
-1. **Action:** Run the repository target inspector against the exact qualified branch and commit.
-   - **Expected result:** Repository root, remote, branch, HEAD, and tree match the Metadata section; worktree is clean.
-   - **Verify:** Inspector reports no failures, branch artificial-civilization-stewardship-memory-clock-001-v0-1, HEAD 69be1e4b63f3348e8ad468246c67ee80eb08d0eb, tree ffa115d33f8dd7faf997c5ed2218b68e008640ac, dirty false.
+1. **Action:** Run the repository target inspector against branch artificial-civilization-stewardship-memory-clock-001-v0-1 with cleanliness required. Treat the current clean branch HEAD as the runbook carrier; do not require it to equal the earlier source-anchor commit.
+   - **Expected result:** Repository root and remote match FunctionNim/fotn-deterministic-runtime, current branch matches, worktree is clean, and no target-gate failures are reported.
+   - **Verify:** Record current HEAD and tree hash separately from the source anchor. Confirm qualified source commit 69be1e4b63f3348e8ad468246c67ee80eb08d0eb resolves locally.
    - **If verification fails:** Stop. Do not switch, reset, merge, fetch, or repair implicitly. Resolve target ownership separately.
    - **Approval required:** None; read-only.
 
-### Phase 2 — Verify bounded source files
+### Phase 2 — Verify bounded source files against the source anchor
 
-1. **Action:** Inspect the three ACCQ-003 files and the ACCQ-002/GamerLaStone dependency files without editing them.
+1. **Action:** Compare these bounded files at current HEAD against commit 69be1e4b63f3348e8ad468246c67ee80eb08d0eb without editing them:
+   - src/artificial-civilization/stewardship-memory-clock-family-001.ts
+   - tests/artificial-civilization/stewardship-memory-clock-family-001.test.ts
+   - qualification/ACCQ_003_STEWARDSHIP_MEMORY_CLOCK_FAMILY_001.md
+   - src/artificial-civilization/two-civilization-minimal-slice.ts
+   - src/gamerlastone/aperture-trial-001.ts
+   - tests/artificial-civilization/two-civilization-minimal-slice.test.ts
+   - tests/gamerlastone/aperture-trial-001.test.ts
+   - **Expected result:** No content differences for the bounded executable/qualification files; later commits may add or revise only runbook/evidence documentation.
+   - **Verify:** Use a scoped Git diff between the source anchor and current HEAD for the listed paths. Empty output is required.
+   - **If verification fails:** Stop and classify as source drift. Do not infer intended content or reuse the earlier PASS.
+   - **Approval required:** None; read-only.
+
+2. **Action:** Inspect current ACCQ-003 content for family and provenance boundaries.
    - **Expected result:** ACCQ-003 defines STEWARDSHIP_MEMORY as the sole added family; source provenance is B-HIST-001 → B-HIST-002; exactCadenceStatus is HOLD.
    - **Verify:** Search/read confirms no second additional family and no direct B-HIST-002 source link to A-HIST-001.
-   - **If verification fails:** Stop and classify as source drift. Do not infer intended content.
+   - **If verification fails:** Stop and classify as source drift.
    - **Approval required:** None; read-only.
 
 ### Phase 3 — Execute focused qualification
