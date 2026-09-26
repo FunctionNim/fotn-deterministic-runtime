@@ -15,6 +15,7 @@ coverage/
 bin/
 obj/
 artifacts/
+.installer-build/
 
 # Visual Studio
 *.user
