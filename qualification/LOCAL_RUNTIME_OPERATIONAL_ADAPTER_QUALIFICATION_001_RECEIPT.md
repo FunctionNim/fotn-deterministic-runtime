@@ -3,7 +3,9 @@
 ## Status
 QUALIFICATION PASS / OWNER LOCK PENDING.
 
-No push, merge, installer packaging, startup registration, Windows service registration, firewall change, or public-network exposure is authorized by this receipt.
+Owner authorization was granted in-chat to lock the qualified local adapter, push its qualification branch, and integrate it into the deterministic runtime lineage.
+
+No installer execution beyond bounded packaging qualification, startup registration, Windows service registration, firewall change, or public-network exposure is authorized by this receipt.
 
 ## Target binding
 - Device: AaronM
@@ -151,12 +153,6 @@ The owner's computer is now proven capable of running the deterministic runtime 
 
 QUALIFICATION PASS / OWNER LOCK PENDING.
 ## Next lawful action
-Create a local qualification commit and rerun post-commit verification.
-
-After owner lock, choose separately whether to:
-- push and integrate the adapter into main;
-- package a local launcher/installable form;
-- add controlled persistent sessions;
-- or keep the adapter as a qualification-only local tool.
+Create an owner-lock receipt commit, push local-runtime-operational-adapter-v0-1, verify the remote head, integrate by fast-forward if main remains at the qualified parent, then proceed to LOCAL INSTALLATION + LAUNCHER PACKAGING QUALIFICATION 001.
 
 Public exposure remains prohibited until a separate network/security qualification.
