@@ -2,9 +2,13 @@
 
 ## Status
 
-QUALIFICATION PASS / OWNER LOCK PENDING.
+QUALIFICATION PASS / OWNER LOCKED.
 
-No push, merge, or deployment is included in this qualification.
+Owner authorization was granted in-chat to lock the tested GP-TEST-001 implementation and push its qualification branch for review/integration.
+
+The Watcher is recorded as the owner's project-side witness/representative for RELATE: witnessing the authorization, preserving evidence, and reporting contradictions or drift. This does not transfer owner authority or create independent governance.
+
+No merge or deployment is authorized by this receipt.
 
 ## Target binding
 
@@ -146,12 +150,11 @@ Still HELD:
 
 GP-TEST-001 IMPLEMENTATION RUNBOOK 001 — EXECUTED IN ISOLATION.
 
-QUALIFICATION PASS / OWNER LOCK PENDING.
+QUALIFICATION PASS / OWNER LOCKED.
 
-The implementation is ready for a local qualification commit and owner review.
+The tested implementation commit ac7fe96ba1e4d490cf3595b41255c645f1568d12 is owner-locked and authorized for branch push.
 
 ## Next lawful action
 
-Create the local qualification commit.
-After post-commit verification, request owner lock/push authorization.
-Push, merge, and deployment remain separate gates.
+Create a receipt-only owner-lock commit, push gp-test-001-implementation-v0-1 to origin, and verify the exact remote head.
+Merge and deployment remain separate owner-authorized gates.
