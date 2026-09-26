@@ -14,7 +14,8 @@
     "verify-manifest": "npm run build && node dist/scripts/verify-manifest.js",
     "check-snapshot-coverage": "npm run build && node dist/scripts/check-snapshot-coverage.js",
     "check-snapshot-coverage:compiled": "node dist/scripts/check-snapshot-coverage.js",
-    "lint-registry": "vitest run tests/snapshot-registry-lint.test.ts"
+    "lint-registry": "vitest run tests/snapshot-registry-lint.test.ts",
+    "local-adapter": "npm run build && node dist/src/adapter/local-runtime-adapter-entry.js"
   },
   "devDependencies": {
     "@types/node": "^20.12.0",
