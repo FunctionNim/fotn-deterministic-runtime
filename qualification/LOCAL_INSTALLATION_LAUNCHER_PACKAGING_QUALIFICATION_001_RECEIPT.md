@@ -3,7 +3,9 @@
 ## Status
 QUALIFICATION PASS / OWNER LOCK PENDING.
 
-No permanent installation, startup registration, Windows service registration, firewall change, public-network exposure, auto-update, or code-signing action is authorized by this receipt.
+Owner authorization was granted in-chat to owner-lock this packaging qualification, push/integrate the packaging lineage, and proceed with PERMANENT LOCAL INSTALLATION 001 on the authorized Windows computer.
+
+Startup registration, Windows service registration, firewall change, public-network exposure, auto-update, and code-signing action remain outside this receipt.
 
 ## Source binding
 - Repository: FunctionNim/fotn-deterministic-runtime
@@ -135,7 +137,6 @@ Still HELD:
 - startup registration;
 - persistent gameplay sessions;
 - network/LAN exposure;
-- permanent owner installation.
 
 ## Preservation boundary
 Preserved:
@@ -157,6 +158,6 @@ The Windows installer is functionally qualified for this owner's local computer 
 QUALIFICATION PASS / OWNER LOCK PENDING.
 
 ## Next lawful action
-Owner lock this packaging qualification, push/integrate the packaging branch, rebuild the installer from the owner-lock-integrated source if required by final release policy, then perform PERMANENT LOCAL INSTALLATION 001 to the owner's chosen local application directory and create the owner-facing shortcut.
+Push/integrate the owner-locked packaging branch, then perform PERMANENT LOCAL INSTALLATION 001 using the already-qualified installer artifact whose manifest is bound to packaging implementation commit 12d65f444a75cac7d18ce6d4b33e285aa7c724c6. Verify the installed manifest, desktop shortcut, localhost-only listener, all 14 GP canaries, stop behavior, and absence of service/startup/firewall mutation. Leave the permanent installation in place but stopped after verification.
 
 Code-signing qualification may be performed before broader distribution, but it is not required to prove local functionality on this already-authorized computer.
