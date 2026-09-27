@@ -1,7 +1,7 @@
 # LOCAL UPDATE CHANNEL HARDENING 002 — QUALIFICATION RECEIPT
 
 ## Status
-QUALIFICATION PASS WITH SIGNING CERTIFICATE HOLD / OWNER LOCK PENDING.
+QUALIFICATION PASS WITH SIGNING CERTIFICATE HOLD / OWNER LOCKED.
 
 Functional hardening is complete.
 Trusted Authenticode release signing is not complete because no usable code-signing certificate with private key is installed on the authorized Windows host.
@@ -231,7 +231,7 @@ HELD:
 - actual trusted signed release, pending a usable code-signing certificate with private key.
 
 ## Next lawful action
-Owner lock/integrate HARDENING 002.
+Owner lock granted in the active project conversation. Push local-update-hardening-v0-2 and integrate it into main only if remote main remains at the verified parent commit.
 
 After integration:
 - functional update/rollback/status operation may continue normally;
