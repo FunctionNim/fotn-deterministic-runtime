@@ -1,7 +1,7 @@
 # LOCAL UPDATE CHANNEL QUALIFICATION 001
 
 ## Metadata
-- Status: In progress
+- Status: Complete
 - Owner: Grimoire project owner
 - Operator: ChatGPT under owner authorization
 - Date: 2026-09-26
@@ -22,11 +22,11 @@ Must remain unchanged: localhost-only binding, GP-TEST-001 meanings, Water/struc
 - [x] Remote main verified at parent commit.
 - [x] Isolated update-channel worktree created.
 - [x] Baseline typecheck/test/build pass.
-- [ ] Updater source committed.
-- [ ] Commit-bound good and fault update packages built.
-- [ ] Forward update qualification passes.
-- [ ] Automatic rollback qualification passes.
-- [ ] Permanent updater bootstrap passes.
+- [x] Updater source committed.
+- [x] Commit-bound good and fault update packages built.
+- [x] Forward update qualification passes.
+- [x] Automatic rollback qualification passes.
+- [x] Permanent updater bootstrap passes.
 
 ## Risk and stop conditions
 Stop on wrong install identity, manifest/hash mismatch, non-loopback listener, canary failure without successful rollback, deletion outside current/previous/staging directories, service/task/firewall mutation, or update package/source-commit mismatch.
@@ -67,23 +67,23 @@ Qualification clone may be deleted after verifying its marker.
 Permanent bootstrap rollback means remove only updater files/shortcut added in this phase.
 No runtime version swap occurs on the permanent installation during bootstrap.
 ## Completion criteria
-- [ ] Valid update package verified.
-- [ ] Forward update v0.1.0 → v0.1.1 PASS.
-- [ ] previous retains v0.1.0.
-- [ ] Fault update triggers automatic rollback.
-- [ ] Restored v0.1.1 passes all 14 canaries.
-- [ ] Permanent install receives updater files only.
-- [ ] Permanent installed version remains v0.1.0.
-- [ ] Runtime remains stopped.
-- [ ] No service/task/firewall change.
-- [ ] Qualification receipt committed.
-- [ ] No public or unattended update mechanism created.
+- [x] Valid update package verified.
+- [x] Forward update v0.1.0 → v0.1.1 PASS.
+- [x] previous retains v0.1.0.
+- [x] Fault update triggers automatic rollback.
+- [x] Restored v0.1.1 passes all 14 canaries.
+- [x] Permanent install receives updater files only.
+- [x] Permanent installed version remains v0.1.0.
+- [x] Runtime remains stopped.
+- [x] No service/task/firewall change.
+- [x] Qualification receipt committed.
+- [x] No public or unattended update mechanism created.
 
 ## Communications
 Report start, first failed gate, successful forward update, successful rollback, permanent bootstrap, and final disposition in the owner-authorized project conversation.
 
 ## Record
 - Started: 2026-09-26
-- Completed: pending
-- Outcome: pending
+- Completed: 2026-09-26
+- Outcome: qualification PASS / owner lock pending
 - Next gate after PASS: owner lock, push/integration, then first real owner-locked runtime update package.
