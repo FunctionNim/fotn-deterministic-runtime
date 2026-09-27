@@ -1,7 +1,7 @@
 # PRESSUREBOUND CONSUMER INTEGRATION 001 — RUNBOOK
 
 ## Metadata
-- Status: In progress
+- Status: Complete
 - Owner: Grimoire project owner
 - Operator: ChatGPT under owner authorization
 - Date: 2026-09-26
@@ -55,12 +55,12 @@ The runtime may inject only the consumer-status script into the HTTP response fo
 - [x] Replit excluded by owner instruction.
 - [x] Actual build hashes captured.
 - [x] Live alternate-port same-origin consumer proof PASS.
-- [ ] Consumer implementation committed.
-- [ ] Commit-bound v0.2.0 update built.
-- [ ] Clone update qualification PASS.
-- [ ] Stable launcher qualification PASS.
-- [ ] Full repository regression PASS.
-- [ ] Qualification receipt committed.
+- [x] Consumer implementation committed.
+- [x] Commit-bound v0.2.0 update built.
+- [x] Clone update qualification PASS.
+- [x] Stable launcher qualification PASS.
+- [x] Full repository regression PASS.
+- [x] Qualification receipt committed.
 
 ## Risk and stop conditions
 - Stop if any bound PRESSUREBOUND file hash or byte count differs.
