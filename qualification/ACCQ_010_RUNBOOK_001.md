@@ -12,6 +12,7 @@
 - **Source branch:** artificial-civilization-authority-lineage-source-discovery-001-v0-1.
 - **Source commit:** 19fe38181341dc478473dfaeb0002e78918a2ca6.
 - **Source tree:** fadd56b3474c504557dfb99c710d1e229f8c087f.
+- **Runbook carrier commit:** deb7585dcdb9c801ee1f6deb03ab53afe779e7ca. This carrier must be a direct descendant of the source commit whose only pre-execution delta is this runbook.
 - **Execution branch:** accq-010-compositional-authority-adoption-gate-001-v0-1.
 - **Execution worktree:** C:\Users\dyron\OneDrive\Documents\GitHub\fotn-accq-010.
 - **Remote freshness:** Verified 2026-09-26 against origin; source branch resolves to the source commit above.
@@ -56,8 +57,9 @@ The procedure must either establish a bounded Artificial-Civilization-local adop
 
 - [ ] Work only in the isolated execution worktree named in Metadata.
 - [ ] Confirm the current branch is `accq-010-compositional-authority-adoption-gate-001-v0-1`.
-- [ ] Confirm HEAD is exactly `19fe38181341dc478473dfaeb0002e78918a2ca6` before ACCQ-010 implementation begins.
-- [ ] Confirm the worktree is clean before creating ACCQ-010 artifacts.
+- [ ] Confirm the frozen source anchor is exactly `19fe38181341dc478473dfaeb0002e78918a2ca6`.
+- [ ] Confirm execution HEAD is either that source anchor or an approved runbook carrier directly descended from it whose only pre-execution delta is `qualification/ACCQ_010_RUNBOOK_001.md`.
+- [ ] Confirm the worktree is clean before creating ACCQ-010 implementation artifacts.
 - [ ] Confirm origin/source freshness or record that the runbook is stale and STOP.
 - [ ] Read ACCQ-007, ACCQ-008, and ACCQ-009 qualification receipts from the verified source commit.
 - [ ] Verify the governing Grimoire/Drive source for CONTROL 022 before adopting any law text.
@@ -93,8 +95,8 @@ The procedure must either establish a bounded Artificial-Civilization-local adop
    `git status --short --branch`
    `git rev-parse HEAD`
    `git rev-parse 'HEAD^{tree}'`
-   - **Expected result:** ACCQ-010 branch, clean status, source commit and tree exactly matching Metadata.
-   - **Verify:** Compare all three outputs to Metadata.
+   - **Expected result:** ACCQ-010 branch and clean status. The frozen source anchor must match Metadata. If HEAD is the approved runbook carrier, its merge-base with the source anchor must equal the source anchor and `git diff --name-status SOURCE..HEAD` must contain only `qualification/ACCQ_010_RUNBOOK_001.md` before implementation begins.
+   - **Verify:** Compare branch and source identity to Metadata; when HEAD is the runbook carrier, verify ancestry plus the one-file carrier delta rather than requiring source-tree equality at HEAD.
    - **If verification fails:** STOP. Do not checkout, reset, clean, or overwrite another worktree.
    - **Approval required:** None for read-only verification.
 
