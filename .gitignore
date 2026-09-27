@@ -16,6 +16,7 @@ bin/
 obj/
 artifacts/
 .installer-build/
+.update-build-*/
 
 # Visual Studio
 *.user
