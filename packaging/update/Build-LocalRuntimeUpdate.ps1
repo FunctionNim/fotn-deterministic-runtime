@@ -28,7 +28,6 @@ foreach($f in @('Start-LocalRuntime.ps1','Stop-LocalRuntime.ps1','Health-LocalRu
   Copy-Item (Join-Path $RuntimeSource $f) (Join-Path $Payload 'scripts\')
 }
 Copy-Item (Join-Path $UpdateSource 'Update-LocalRuntime.ps1') (Join-Path $Payload 'scripts\')
-Copy-Item (Join-Path $UpdateSource 'Update FOTN Local Runtime.cmd') (Join-Path $Payload 'Update FOTN Local Runtime.cmd')
 foreach($f in @('Start FOTN Local Runtime.cmd','Stop FOTN Local Runtime.cmd','Check FOTN Local Runtime.cmd','Uninstall FOTN Local Runtime.cmd')){
   Copy-Item (Join-Path $RuntimeSource $f) (Join-Path $Payload $f)
 }
