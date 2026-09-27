@@ -10,18 +10,21 @@ $BuildRoot=Join-Path $RepoRoot ('.update-build-'+$Version+'-'+$FaultMode)
 $Payload=Join-Path $BuildRoot 'payload'
 $RuntimeSource=Join-Path $RepoRoot 'packaging\runtime'
 $UpdateSource=Join-Path $RepoRoot 'packaging\update'
+$PressureboundSource=Join-Path $RepoRoot 'packaging\pressurebound-web'
 $NodeExe=(Get-Command node.exe).Source
 $SourceCommit=(git -C $RepoRoot rev-parse HEAD).Trim()
 
 if(Test-Path $BuildRoot){ Remove-Item $BuildRoot -Recurse -Force }
 New-Item -ItemType Directory -Force $Payload,$OutputDir | Out-Null
-New-Item -ItemType Directory -Force (Join-Path $Payload 'runtime'),(Join-Path $Payload 'app\adapter'),(Join-Path $Payload 'app\pyramid'),(Join-Path $Payload 'scripts') | Out-Null
+New-Item -ItemType Directory -Force (Join-Path $Payload 'runtime'),(Join-Path $Payload 'app\adapter'),(Join-Path $Payload 'app\pyramid'),(Join-Path $Payload 'app\pressurebound-consumer'),(Join-Path $Payload 'scripts') | Out-Null
 Push-Location $RepoRoot
 try { npm run build | Out-Host } finally { Pop-Location }
 Copy-Item $NodeExe (Join-Path $Payload 'runtime\node.exe')
 Copy-Item (Join-Path $RepoRoot 'dist\src\adapter\local-runtime-adapter-entry.js') (Join-Path $Payload 'app\adapter\')
 Copy-Item (Join-Path $RepoRoot 'dist\src\adapter\local-runtime-adapter.js') (Join-Path $Payload 'app\adapter\')
 Copy-Item (Join-Path $RepoRoot 'dist\src\pyramid\gp-test-001.js') (Join-Path $Payload 'app\pyramid\')
+Copy-Item (Join-Path $RepoRoot 'dist\src\pressurebound-consumer\consumer-host.js') (Join-Path $Payload 'app\pressurebound-consumer\')
+Copy-Item -LiteralPath $PressureboundSource -Destination (Join-Path $Payload 'pressurebound-web') -Recurse
 '{"type":"module"}' | Set-Content -Path (Join-Path $Payload 'app\package.json') -Encoding UTF8
 
 foreach($f in @('Start-LocalRuntime.ps1','Stop-LocalRuntime.ps1','Health-LocalRuntime.ps1','Uninstall-LocalRuntime.ps1')){
@@ -65,6 +68,8 @@ $manifest=[ordered]@{
   sourceCommit=$SourceCommit
   adapterId='LOCAL-RUNTIME-ADAPTER-001'
   faultMode=$FaultMode
+  pressureboundConsumer='PRESSUREBOUND-CONSUMER-001'
+  pressureboundDeploymentId='1e7065ec-8bd9-481b-bacf-f812810efae0'
   files=$files
 }
 $manifest | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $BuildRoot 'update-manifest.json') -Encoding UTF8

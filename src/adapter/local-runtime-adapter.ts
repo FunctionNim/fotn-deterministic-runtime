@@ -11,6 +11,15 @@ import {
   type GPCommand,
   type GPTestState,
 } from "../pyramid/gp-test-001.js"
+import {
+  pressureboundConsumerHandshake,
+  readPressureboundHostedAsset,
+  type PressureboundConsumerOptions,
+} from "../pressurebound-consumer/consumer-host.js"
+
+export interface LocalRuntimeAdapterOptions {
+  pressurebound?: PressureboundConsumerOptions
+}
 
 export const LOCAL_RUNTIME_ADAPTER_001 = Object.freeze({
   adapterId: "LOCAL-RUNTIME-ADAPTER-001",
@@ -262,6 +271,21 @@ function sendJson(response: ServerResponse, status: number, payload: unknown): v
   response.end(body)
 }
 
+function sendHostedAsset(
+  response: ServerResponse,
+  asset: { status: number; contentType: string; body: Buffer; originalSha256?: string; injected?: boolean },
+): void {
+  response.writeHead(asset.status, {
+    "content-type": asset.contentType,
+    "content-length": asset.body.length,
+    "cache-control": "no-store",
+    "x-fotn-adapter": LOCAL_RUNTIME_ADAPTER_001.adapterId,
+    ...(asset.originalSha256 ? { "x-pressurebound-source-sha256": asset.originalSha256 } : {}),
+    ...(asset.injected ? { "x-pressurebound-consumer-injected": "true" } : {}),
+  })
+  response.end(asset.body)
+}
+
 function rejectBody(request: IncomingMessage, response: ServerResponse): boolean {
   const length = Number(request.headers["content-length"] ?? "0")
   if (Number.isFinite(length) && length > 0) {
@@ -270,7 +294,9 @@ function rejectBody(request: IncomingMessage, response: ServerResponse): boolean
   }
   return false
 }
-export function createLocalRuntimeAdapterServer(): Server {
+export function createLocalRuntimeAdapterServer(
+  options: LocalRuntimeAdapterOptions = {},
+): Server {
   return createServer((request, response) => {
     const method = request.method ?? "GET"
     const url = new URL(request.url ?? "/", "http://127.0.0.1")
@@ -284,6 +310,20 @@ export function createLocalRuntimeAdapterServer(): Server {
         fixtureId: LOCAL_RUNTIME_ADAPTER_001.fixtureId,
       })
       return
+    }
+
+    if (method === "GET" && url.pathname === "/pressurebound/consumer/handshake") {
+      const handshake = pressureboundConsumerHandshake(options.pressurebound)
+      sendJson(response, handshake.status === "ok" ? 200 : 503, handshake)
+      return
+    }
+
+    if (method === "GET") {
+      const asset = readPressureboundHostedAsset(url.pathname, options.pressurebound)
+      if (asset) {
+        sendHostedAsset(response, asset)
+        return
+      }
     }
 
     if (method === "GET" && url.pathname === "/gp-test-001/baseline") {
@@ -323,8 +363,9 @@ export function createLocalRuntimeAdapterServer(): Server {
 
 export async function startLocalRuntimeAdapter(
   port: number = LOCAL_RUNTIME_ADAPTER_001.defaultPort,
+  options: LocalRuntimeAdapterOptions = {},
 ): Promise<{ server: Server; host: string; port: number }> {
-  const server = createLocalRuntimeAdapterServer()
+  const server = createLocalRuntimeAdapterServer(options)
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject)
     server.listen(port, LOCAL_RUNTIME_ADAPTER_001.host, () => resolve())
