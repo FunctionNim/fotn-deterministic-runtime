@@ -24,6 +24,15 @@ function Stop-Runtime([string]$Root) {
     throw "Port $Port remains open after stop."
   }
 }
+
+function Move-DirectoryWithRetry([string]$Source,[string]$Destination) {
+  $last=$null
+  for($i=0;$i -lt 20;$i++){
+    try { Move-Item -LiteralPath $Source -Destination $Destination; return }
+    catch { $last=$_; Start-Sleep -Milliseconds 250 }
+  }
+  throw "Directory move failed after quiescence retries: $Source -> $Destination :: $($last.Exception.Message)"
+}
 function Test-Runtime([string]$Root) {
   $start=Join-Path $Root 'scripts\Start-LocalRuntime.ps1'
   $stop=Join-Path $Root 'scripts\Stop-LocalRuntime.ps1'
@@ -86,15 +95,15 @@ try {
     $pm=Read-Marker $previous
     Remove-Item -LiteralPath $previous -Recurse -Force
   }
-  Move-Item -LiteralPath $InstallRoot -Destination $previous
-  Move-Item -LiteralPath $stage -Destination $InstallRoot
+  Move-DirectoryWithRetry $InstallRoot $previous
+  Move-DirectoryWithRetry $stage $InstallRoot
 
   try {
     $proof=Test-Runtime $InstallRoot
   } catch {
     Stop-Runtime $InstallRoot
     Remove-Item -LiteralPath $InstallRoot -Recurse -Force -ErrorAction SilentlyContinue
-    Move-Item -LiteralPath $previous -Destination $InstallRoot
+    Move-DirectoryWithRetry $previous $InstallRoot
     $rollbackProof=Test-Runtime $InstallRoot
     & $HistoryWriter -ParentRoot $parent -Entry @{
       action='UPDATE_ROLLBACK'

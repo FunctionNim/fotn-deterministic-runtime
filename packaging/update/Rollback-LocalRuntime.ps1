@@ -23,6 +23,15 @@ function Stop-Runtime([string]$Root) {
   }
 }
 
+function Move-DirectoryWithRetry([string]$Source,[string]$Destination) {
+  $last=$null
+  for($i=0;$i -lt 20;$i++){
+    try { Move-Item -LiteralPath $Source -Destination $Destination; return }
+    catch { $last=$_; Start-Sleep -Milliseconds 250 }
+  }
+  throw "Directory move failed after quiescence retries: $Source -> $Destination :: $($last.Exception.Message)"
+}
+
 function Test-Runtime([string]$Root) {
   $start=Join-Path $Root 'scripts\Start-LocalRuntime.ps1'
   $stop=Join-Path $Root 'scripts\Stop-LocalRuntime.ps1'
@@ -58,16 +67,16 @@ $hold=Join-Path $ParentRoot ('.rollback-current-'+[guid]::NewGuid().ToString('N'
 $failed=Join-Path $ParentRoot ('.rollback-failed-'+[guid]::NewGuid().ToString('N'))
 
 try {
-  Move-Item -LiteralPath $current -Destination $hold
-  Move-Item -LiteralPath $previous -Destination $current
+  Move-DirectoryWithRetry $current $hold
+  Move-DirectoryWithRetry $previous $current
 
   try {
     $proof=Test-Runtime $current
   } catch {
     Stop-Runtime $current
-    Move-Item -LiteralPath $current -Destination $failed
-    Move-Item -LiteralPath $hold -Destination $current
-    Move-Item -LiteralPath $failed -Destination $previous
+    Move-DirectoryWithRetry $current $failed
+    Move-DirectoryWithRetry $hold $current
+    Move-DirectoryWithRetry $failed $previous
     $restoreProof=Test-Runtime $current
     & $HistoryWriter -ParentRoot $ParentRoot -Entry @{
       action='MANUAL_ROLLBACK_RESTORED_CURRENT'
@@ -82,7 +91,7 @@ try {
     throw "ROLLBACK_REJECTED_RESTORED_CURRENT: $($_.Exception.Message)"
   }
 
-  Move-Item -LiteralPath $hold -Destination $previous
+  Move-DirectoryWithRetry $hold $previous
   & $HistoryWriter -ParentRoot $ParentRoot -Entry @{
     action='MANUAL_ROLLBACK_PASS'
     result='PASS'
