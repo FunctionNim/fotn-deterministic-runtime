@@ -2,7 +2,7 @@
 
 ## Metadata
 
-- **Status:** Draft / validated execution runbook; runtime qualification not yet executed.
+- **Status:** Complete — executed with HOLD_NO_APPLICABLE_ADOPTION_GRANT.
 - **Owner:** Aaron
 - **Operator:** Authorized AI or human operator acting within this runbook.
 - **Last verified:** 2026-09-26
@@ -239,16 +239,16 @@ The procedure must either establish a bounded Artificial-Civilization-local adop
 
 ## Completion criteria
 
-- [ ] Repository target and source freshness verified.
-- [ ] Controls 019–023 source-home evidence checked; CONTROL 022 exact applicability assessed.
-- [ ] Every ACCQ-008 admission property has an evidence-backed disposition.
-- [ ] No source analogy was treated as authority.
-- [ ] Exactly one ACCQ-010 disposition recorded: bounded admission, awaiting Owner adoption approval, or HOLD/no applicable grant.
-- [ ] ACCQ-010 never selects a winner, merges collided proposals, commits collided state, or writes collision history.
-- [ ] Preserved regressions, typecheck, build, full suite, and diff check pass.
-- [ ] Qualification receipt records HOLD-06 effect explicitly.
-- [ ] No canon promotion or main-branch merge occurred.
-- [ ] Next edge is ACCQ-011 only if authority was actually admitted; otherwise HOLD-06 remains preserved.
+- [x] Repository target and source freshness verified.
+- [x] Controls 019–023 source-home evidence checked; CONTROL 022 exact applicability assessed.
+- [x] Every ACCQ-008 admission property has an evidence-backed disposition.
+- [x] No source analogy was treated as authority.
+- [x] Exactly one ACCQ-010 disposition recorded: HOLD/no applicable grant.
+- [x] ACCQ-010 never selects a winner, merges collided proposals, commits collided state, or writes collision history.
+- [x] Preserved regressions, typecheck, build, full suite, and diff check pass.
+- [x] Qualification receipt records HOLD-06 effect explicitly.
+- [x] No canon promotion or main-branch merge occurred.
+- [x] ACCQ-011 is not authorized; HOLD-06 remains preserved.
 
 ## Communications
 - **Start:** Record execution branch, source commit/tree, operator, and source packet.
@@ -257,11 +257,11 @@ The procedure must either establish a bounded Artificial-Civilization-local adop
 
 ## Record
 
-- **Started:** To be filled at execution.
-- **Completed:** To be filled at execution.
-- **Operator:** To be filled at execution.
-- **Approvals:** Record Owner adoption approval only if explicitly supplied.
-- **Outcome:** ADMITTED_FOR_ACCQ_SCOPE / AWAITING_OWNER_ADOPTION_APPROVAL / HOLD_NO_APPLICABLE_ADOPTION_GRANT.
-- **Deviations:** Record every deviation from this procedure; unrecorded deviation invalidates closeout.
-- **Follow-up:** ACCQ-011 only after admitted authority; otherwise next independent qualified hold.
+- **Started:** 2026-09-26.
+- **Completed:** 2026-09-26.
+- **Operator:** ChatGPT using authorized Remote Desktop Commander and Google Drive access.
+- **Approvals:** Owner approved the source-carrier runbook correction. No adoption approval was requested because the source packet did not produce a source-complete candidate grant.
+- **Outcome:** HOLD_NO_APPLICABLE_ADOPTION_GRANT.
+- **Deviations:** Initial freeze exposed a self-created runbook-carrier mismatch. Execution stopped; Owner approved a correction distinguishing source anchor from documentation carrier; the runbook was revalidated and execution resumed. No other deviations.
+- **Follow-up:** Preserve HOLD-06 and move to the next independent qualified hold. ACCQ-011 is not authorized from this result.
 - **Next verification:** Before any continuation branch is created.
