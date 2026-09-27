@@ -27,7 +27,6 @@ Copy-Item (Join-Path $RepoRoot 'dist\src\pyramid\gp-test-001.js') (Join-Path $Pa
 foreach($f in @('Start-LocalRuntime.ps1','Stop-LocalRuntime.ps1','Health-LocalRuntime.ps1','Uninstall-LocalRuntime.ps1')){
   Copy-Item (Join-Path $RuntimeSource $f) (Join-Path $Payload 'scripts\')
 }
-Copy-Item (Join-Path $UpdateSource 'Update-LocalRuntime.ps1') (Join-Path $Payload 'scripts\')
 foreach($f in @('Start FOTN Local Runtime.cmd','Stop FOTN Local Runtime.cmd','Check FOTN Local Runtime.cmd','Uninstall FOTN Local Runtime.cmd')){
   Copy-Item (Join-Path $RuntimeSource $f) (Join-Path $Payload $f)
 }
