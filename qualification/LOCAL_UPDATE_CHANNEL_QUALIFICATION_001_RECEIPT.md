@@ -146,6 +146,6 @@ The mechanism has proven:
 QUALIFICATION PASS / OWNER LOCK PENDING.
 
 ## Next lawful action
-Owner lock this qualification, push/integrate local-update-channel-v0-1, then build the first real owner-locked update release.
+Owner lock complete. Push/integrate local-update-channel-v0-1, then build the first real owner-locked v0.1.1 update release from the integrated owner-lock commit. Requalify that exact package against a v0.1.0 installation clone before placing it in Downloads.
 
 A later AUTO-UPDATE DISCOVERY qualification may add controlled remote discovery, but this local channel intentionally performs no unattended network activity.
