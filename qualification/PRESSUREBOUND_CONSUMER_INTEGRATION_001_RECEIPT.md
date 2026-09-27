@@ -1,7 +1,7 @@
 # PRESSUREBOUND CONSUMER INTEGRATION 001 — QUALIFICATION RECEIPT
 
 ## Status
-QUALIFICATION PASS / OWNER LOCK PENDING.
+QUALIFICATION PASS / OWNER LOCKED.
 
 This pass connects the actual current local PRESSUREBOUND build to the installed FOTN local runtime as a verified same-origin consumer.
 
@@ -179,10 +179,10 @@ Still HELD:
 - gameplay transition-authority migration
 - replacement of browser-bundled engine
 ## Next lawful action
-Owner lock PRESSUREBOUND CONSUMER INTEGRATION 001.
+Owner lock granted in the active project conversation.
 
-After owner lock:
-1. push and integrate pressurebound-consumer-integration-v0-1;
+Proceed with:
+1. push and integrate pressurebound-consumer-integration-v0-1 only if remote main remains at the verified parent;
 2. rebuild v0.2.0 from the owner-lock-integrated commit;
 3. requalify that exact release package;
 4. update the permanent runtime from v0.1.1 to the integrated v0.2.0 release;
