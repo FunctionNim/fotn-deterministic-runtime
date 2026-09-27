@@ -50,3 +50,29 @@ Runtime update ZIPs must NOT embed/replace the updater bootstrap as part of the 
 7. Repair permanent parent-level bootstrap and desktop shortcut.
 8. Replace Downloads v0.1.1 ZIP with repaired release only after exact hash verification.
 9. Apply to permanent installation and verify.
+
+## Qualification result
+PASS.
+
+Repair implementation commit:
+e535d45c8b98e87ce576ad425ae1f04462310e99
+
+Repaired v0.1.1 package:
+- SHA-256: 33c14cf300a597874e9e0461b440a59bc6b56b1f7200af1f878efa25349cd4f9
+- source commit: e535d45c8b98e87ce576ad425ae1f04462310e99
+- bytes: 34,274,121
+
+Parent-level launcher qualification:
+- isolated Windows-like parent/current topology: PASS;
+- automatic Downloads discovery: PASS;
+- v0.1.0 → v0.1.1: PASS;
+- previous v0.1.0 retained: PASS;
+- GP health/baseline + 14 canaries: PASS;
+- runtime stopped after update: PASS.
+
+## Disposition
+LOCAL UPDATE BOOTSTRAP REPAIR 001 — PASS.
+
+The prior v0.1.1 ZIP with SHA-256 2c08204ce9e7fc4cdd4e9f30a1886bcc5b7e36eedbd03b432e4d22aec99ff9db is SUPERSEDED and must not be applied.
+
+The repaired v0.1.1 release with SHA-256 33c14cf300a597874e9e0461b440a59bc6b56b1f7200af1f878efa25349cd4f9 is the qualified replacement.
