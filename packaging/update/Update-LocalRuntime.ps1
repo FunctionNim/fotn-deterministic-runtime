@@ -6,6 +6,8 @@ param(
 $ErrorActionPreference='Stop'
 $Product='FOTN Local Runtime Adapter'
 $ExpectedAdapter='LOCAL-RUNTIME-ADAPTER-001'
+$HistoryWriter=Join-Path $PSScriptRoot 'Write-UpdateHistory.ps1'
+if(!(Test-Path $HistoryWriter)){ throw "Update history helper missing: $HistoryWriter" }
 
 function Read-Marker([string]$Root) {
   $path=Join-Path $Root 'FOTN_LOCAL_RUNTIME_INSTALL.json'
@@ -51,6 +53,7 @@ if(-not $PackagePath){
   $PackagePath=$candidate.FullName
 }
 $PackagePath=(Resolve-Path $PackagePath).Path
+$PackageSha256=(Get-FileHash -Algorithm SHA256 -LiteralPath $PackagePath).Hash.ToLowerInvariant()
 $current=Read-Marker $InstallRoot
 $parent=Split-Path -Parent $InstallRoot
 $previous=Join-Path $parent 'previous'
@@ -93,8 +96,30 @@ try {
     Remove-Item -LiteralPath $InstallRoot -Recurse -Force -ErrorAction SilentlyContinue
     Move-Item -LiteralPath $previous -Destination $InstallRoot
     $rollbackProof=Test-Runtime $InstallRoot
+    & $HistoryWriter -ParentRoot $parent -Entry @{
+      action='UPDATE_ROLLBACK'
+      result='PASS'
+      fromVersion=$current.version
+      attemptedVersion=$manifest.version
+      restoredVersion=$current.version
+      attemptedSourceCommit=$manifest.sourceCommit
+      packageSha256=$PackageSha256
+      baselineHash=$rollbackProof.baselineHash
+      canaries=$rollbackProof.canaries
+      reason=$_.Exception.Message
+    } | Out-Null
     throw "UPDATE_ROLLED_BACK: $($_.Exception.Message)"
   }
+  & $HistoryWriter -ParentRoot $parent -Entry @{
+    action='UPDATE_PASS'
+    result='PASS'
+    fromVersion=$current.version
+    toVersion=$manifest.version
+    sourceCommit=$manifest.sourceCommit
+    packageSha256=$PackageSha256
+    baselineHash=$proof.baselineHash
+    canaries=$proof.canaries
+  } | Out-Null
   [pscustomobject]@{
     result='UPDATED'
     fromVersion=$current.version
