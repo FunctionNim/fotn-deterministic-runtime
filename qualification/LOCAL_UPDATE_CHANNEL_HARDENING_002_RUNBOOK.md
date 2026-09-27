@@ -1,7 +1,7 @@
 # LOCAL UPDATE CHANNEL HARDENING 002 — RUNBOOK
 
 ## Metadata
-- Status: In progress
+- Status: Complete
 - Owner: Grimoire project owner
 - Operator: ChatGPT under owner authorization
 - Last verified: 2026-09-26
@@ -27,12 +27,13 @@ Must remain unchanged: localhost-only runtime, GP-TEST-001 canaries, Water/struc
 - [x] Baseline typecheck/test/build PASS: 647/647 tests.
 - [x] Windows SDK SignTool present.
 - [x] Code-signing certificate inventory checked.
-- [ ] Hardening implementation committed.
-- [ ] Update ledger qualification passes.
-- [ ] Rollback forward/back qualification passes.
-- [ ] Status visibility qualification passes.
-- [ ] Signing pipeline readiness qualification passes.
-- [ ] Permanent bootstrap passes.
+- [x] Approval gate: owner explicitly authorized LOCAL UPDATE CHANNEL HARDENING 002 in the active project conversation.
+- [x] Hardening implementation committed.
+- [x] Update ledger qualification passes.
+- [x] Rollback forward/back qualification passes.
+- [x] Status visibility qualification passes.
+- [x] Signing pipeline readiness qualification passes.
+- [x] Permanent bootstrap passes.
 
 ## Risk and stop conditions
 Stop if rollback candidate identity is invalid, any canary fails without restoration of the original current version, ledger writes secrets, updater/rollback touches outside the LocalRuntimeAdapter parent, runtime binds beyond 127.0.0.1, or signing requires trust-store/private-key manipulation not explicitly authorized.
@@ -89,24 +90,24 @@ Hardening bootstrap rollback removes only new parent-level scripts and new deskt
 If a manual rollback qualification fails, script must restore the original current automatically before returning failure.
 
 ## Completion criteria
-- [ ] Status shows correct current/previous/running/ledger/signing state.
-- [ ] Update history ledger is append-only.
-- [ ] Manual rollback v0.1.1 → v0.1.0 passes 14 canaries.
-- [ ] Reverse rollback v0.1.0 → v0.1.1 passes 14 canaries.
-- [ ] Failed rollback restoration path is qualified.
-- [ ] Signing readiness reports actual host state.
-- [ ] Sign script enforces SHA-256, timestamp URL, explicit thumbprint, and post-sign verification.
-- [ ] Permanent bootstrap installed without changing runtime version.
-- [ ] No service/task/firewall/public exposure created.
-- [ ] Full repository regression passes.
-- [ ] Qualification receipt committed.
+- [x] Status shows correct current/previous/running/ledger/signing state.
+- [x] Update history ledger is append-only.
+- [x] Manual rollback v0.1.1 → v0.1.0 passes 14 canaries.
+- [x] Reverse rollback v0.1.0 → v0.1.1 passes 14 canaries.
+- [x] Failed rollback restoration path is qualified.
+- [x] Signing readiness reports actual host state.
+- [x] Sign script enforces SHA-256, timestamp URL, explicit thumbprint, and post-sign verification.
+- [x] Permanent bootstrap installed without changing runtime version.
+- [x] No service/task/firewall/public exposure created.
+- [x] Full repository regression passes.
+- [x] Qualification receipt committed.
 
 ## Communications
 Report signing availability separately from functional hardening. A missing trusted certificate is a bounded HOLD, not a failed rollback/status qualification.
 
 ## Record
 - Started: 2026-09-26
-- Completed: pending
-- Outcome: pending
+- Completed: 2026-09-26
+- Outcome: functional qualification PASS; trusted signing held at CERTIFICATE_REQUIRED
 - Signing state at start: SignTool present; no code-signing certificate with private key found
 - Next gate after PASS: owner lock/integration; certificate enrollment/signing as separate trust gate if desired
