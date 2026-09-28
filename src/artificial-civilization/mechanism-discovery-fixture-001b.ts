@@ -9,6 +9,7 @@ export type ResearchTargetKey = "FIXTURE.SHARED_LOCAL_STATE_KEY"
 export type SyntheticSharedToken =
   | "SYNTHETIC_SHARED_TOKEN"
   | "SYNTHETIC_SHARED_TOKEN_PERTURBED"
+  | "SYNTHETIC_SHARED_TOKEN_ABSENT"
 export type SyntheticCivicToken =
   | "SYNTHETIC_CM_TOKEN"
   | "SYNTHETIC_CM_TOKEN_PERTURBED"
