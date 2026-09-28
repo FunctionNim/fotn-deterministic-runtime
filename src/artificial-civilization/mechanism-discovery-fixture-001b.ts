@@ -6,12 +6,20 @@ export const MECHANISM_DISCOVERY_FIXTURE_001B_SCHEMA =
 export type ResearchFamily = "CIVIC_METABOLISM" | "WORLD_SUBSTRATE"
 export type ResearchTargetKey = "FIXTURE.SHARED_LOCAL_STATE_KEY"
 
+export type SyntheticSharedToken = "SYNTHETIC_SHARED_TOKEN"
+export type SyntheticCivicToken =
+  | "SYNTHETIC_CM_TOKEN"
+  | "SYNTHETIC_CM_TOKEN_PERTURBED"
+export type SyntheticSubstrateToken =
+  | "SYNTHETIC_WS_TOKEN"
+  | "SYNTHETIC_WS_TOKEN_PERTURBED"
+
 export interface FrozenResearchInput {
   fixtureId: "MDF-001B-FROZEN-INPUT-001"
   targetKey: ResearchTargetKey
-  sharedToken: "SYNTHETIC_SHARED_TOKEN"
-  civicToken: "SYNTHETIC_CM_TOKEN"
-  substrateToken: "SYNTHETIC_WS_TOKEN"
+  sharedToken: SyntheticSharedToken
+  civicToken: SyntheticCivicToken
+  substrateToken: SyntheticSubstrateToken
 }
 
 export interface ResearchProposal {
