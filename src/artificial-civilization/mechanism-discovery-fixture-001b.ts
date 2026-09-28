@@ -6,7 +6,9 @@ export const MECHANISM_DISCOVERY_FIXTURE_001B_SCHEMA =
 export type ResearchFamily = "CIVIC_METABOLISM" | "WORLD_SUBSTRATE"
 export type ResearchTargetKey = "FIXTURE.SHARED_LOCAL_STATE_KEY"
 
-export type SyntheticSharedToken = "SYNTHETIC_SHARED_TOKEN"
+export type SyntheticSharedToken =
+  | "SYNTHETIC_SHARED_TOKEN"
+  | "SYNTHETIC_SHARED_TOKEN_PERTURBED"
 export type SyntheticCivicToken =
   | "SYNTHETIC_CM_TOKEN"
   | "SYNTHETIC_CM_TOKEN_PERTURBED"
