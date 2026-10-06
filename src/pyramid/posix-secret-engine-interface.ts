@@ -46,6 +46,7 @@ export type MachineCode =
   | "REFUSE-AUTO-ADMIT"
   | "REFUSE-AUTO-ROUTE"
   | "INVALID-FINGERPRINT"
+  | "INVALID-RECEIPT"
 
 export interface ContradictionRef {
   ref: string
@@ -204,9 +205,25 @@ export function emitHandoff(
   }
 }
 
+const readSideMonotonicStates = new Set<InterfaceState>([
+  "ADMISSIBLE_NOT_ADMITTED",
+  "UNKNOWN_OUTCOME",
+  "ADMITTED",
+  "SEED_BOUND",
+  "ROUTE_ELIGIBLE",
+  "ROUTED",
+])
+
+function preserveReadSideState(state: InterfaceRuntimeState, handoffId: string): boolean {
+  return state.activeHandoffId === handoffId && readSideMonotonicStates.has(state.state)
+}
+
 export function observe(state: InterfaceRuntimeState, handoffId: string): OperationResult {
   const packet = state.packets[handoffId]
   if (!packet) return { code: "HOLD-UNRESOLVED-SOURCE", state: { ...state, state: "HOLD" }, engineEffect: "NONE" }
+  if (preserveReadSideState(state, handoffId)) {
+    return { code: "OK-DUPLICATE", state, engineEffect: "NONE" }
+  }
   return {
     code: state.state === "OBSERVED" && state.activeHandoffId === handoffId ? "OK-DUPLICATE" : "OK-OBSERVED",
     state: { ...state, state: "OBSERVED", activeHandoffId: handoffId },
@@ -264,11 +281,35 @@ export function validate(state: InterfaceRuntimeState, handoffId: string): Opera
   if (packet.contradictions.some(c => c.blocking)) {
     return { code: "HOLD-BLOCKING-CONTRADICTION", state: { ...state, state: "HOLD" }, engineEffect: "NONE" }
   }
+  if (preserveReadSideState(state, handoffId)) {
+    return { code: "OK-VALID", state, engineEffect: "NONE" }
+  }
   return {
     code: "OK-VALID",
     state: { ...state, state: "ADMISSIBLE_NOT_ADMITTED", activeHandoffId: handoffId },
     engineEffect: "NONE",
   }
+}
+
+export function validateAdmissionReceipt(
+  state: InterfaceRuntimeState,
+  operationId: string,
+  receipt: AdmissionReceipt,
+): boolean {
+  if (!operationId.trim() || !receipt.operationId.trim() || receipt.operationId !== operationId) return false
+  if (!receipt.handoffId.trim() || !state.packets[receipt.handoffId]) return false
+  if (state.activeHandoffId && receipt.handoffId !== state.activeHandoffId) return false
+  if (!receipt.admissionAuthorityRef?.trim()) return false
+
+  if (receipt.decision === "COMMITTED") {
+    return receipt.committedEventId === `posix-admit:${operationId}` &&
+      receipt.stateBeforeRef === "ADMISSIBLE_NOT_ADMITTED" &&
+      receipt.stateAfterRef === "ADMITTED"
+  }
+
+  return receipt.committedEventId === undefined &&
+    receipt.stateBeforeRef === undefined &&
+    receipt.stateAfterRef === undefined
 }
 
 export function admit(state: InterfaceRuntimeState, context: AdmissionContext): OperationResult {
@@ -331,14 +372,20 @@ export function reconcile(
 ): OperationResult {
   const prior = state.admissionReceipts[operationId]
   if (!prior) return { code: "HOLD-OPERATION-UNKNOWN", state: { ...state, state: "UNKNOWN_OUTCOME" }, engineEffect: "NONE" }
+  if (!validateAdmissionReceipt(state, operationId, prior)) {
+    return { code: "INVALID-RECEIPT", state, engineEffect: "NONE", receipt: prior }
+  }
+  if (prior.decision === "COMMITTED") {
+    return { code: "OK-ALREADY-COMMITTED", state, engineEffect: "NONE", receipt: prior }
+  }
   if (authoritativeDecision === "UNKNOWN") {
     return { code: "HOLD-OPERATION-UNKNOWN", state: { ...state, state: "UNKNOWN_OUTCOME" }, engineEffect: "NONE", receipt: prior }
   }
   const receipt: AdmissionReceipt = {
     ...prior,
     decision: authoritativeDecision,
-    committedEventId: authoritativeDecision === "COMMITTED" ? prior.committedEventId ?? `posix-admit:${operationId}` : undefined,
-    stateBeforeRef: authoritativeDecision === "COMMITTED" ? prior.stateBeforeRef ?? "ADMISSIBLE_NOT_ADMITTED" : undefined,
+    committedEventId: authoritativeDecision === "COMMITTED" ? `posix-admit:${operationId}` : undefined,
+    stateBeforeRef: authoritativeDecision === "COMMITTED" ? "ADMISSIBLE_NOT_ADMITTED" : undefined,
     stateAfterRef: authoritativeDecision === "COMMITTED" ? "ADMITTED" : undefined,
   }
   return {
