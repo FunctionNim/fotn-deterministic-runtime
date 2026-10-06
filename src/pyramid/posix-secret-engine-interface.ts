@@ -153,8 +153,14 @@ export function emitHandoff(
   observedAt: string,
   supersedesId?: string,
 ): OperationResult {
-  if (source.accountabilityState !== "ACCOUNTABLE" && source.accountabilityState !== "PARTIALLY_ACCOUNTABLE") {
+  if (!handoffId.trim()) {
+    return { code: "HOLD-MISSING-FIELD", state: { ...state, state: "HOLD" }, engineEffect: "NONE" }
+  }
+  if (source.accountabilityState === "PRE_ROUTE") {
     return { code: "NO-HANDOFF", state, engineEffect: "NONE" }
+  }
+  if (source.accountabilityState === "UNKNOWN") {
+    return { code: "DENY-NOT-ACCOUNTABLE", state, engineEffect: "NONE" }
   }
 
   const base: Omit<HandoffPacket, "semanticFingerprint"> = {
@@ -218,15 +224,35 @@ function hasAgentiveNothing(packet: HandoffPacket): boolean {
   return /(the nothing (chose|chooses|decided|decides|admitted|admits|judged|judges|wanted|wants|commanded|commands|asked|asks))/.test(text)
 }
 
+function commandsAdmission(nextLawfulEdge: string): boolean {
+  const normalized = nextLawfulEdge.trim().toLowerCase().replace(/[_-]+/g, " ")
+  return /\b(auto admit|admit now|admission required|admission command|bind seed now|create seed now|route commit now)\b/.test(normalized)
+}
+
 export function validate(state: InterfaceRuntimeState, handoffId: string): OperationResult {
   const packet = state.packets[handoffId]
   if (!packet) return { code: "HOLD-UNRESOLVED-SOURCE", state: { ...state, state: "HOLD" }, engineEffect: "NONE" }
+  if (!packet.handoffId.trim()) {
+    return { code: "HOLD-MISSING-FIELD", state: { ...state, state: "HOLD" }, engineEffect: "NONE" }
+  }
   if (packet.schemaVersion !== "POSIX-SE-HANDOFF-1.0") {
     return { code: "HOLD-UNSUPPORTED-SCHEMA", state: { ...state, state: "HOLD" }, engineEffect: "NONE" }
+  }
+  if (packet.handoffType !== "ACCOUNTABLE_CONSEQUENCE") {
+    return { code: "DENY-PRECONDITION", state: { ...state, state: "DENIED" }, engineEffect: "NONE" }
   }
   if (!packet.sourcePositionIxId || packet.sourceRefs.length === 0 || packet.consequenceEvidence.length === 0 ||
       packet.boundaries.length === 0 || packet.ancestry.length === 0) {
     return { code: "HOLD-MISSING-FIELD", state: { ...state, state: "HOLD" }, engineEffect: "NONE" }
+  }
+  if (commandsAdmission(packet.nextLawfulEdge)) {
+    return { code: "REFUSE-AUTO-ADMIT", state: { ...state, state: "REFUSED" }, engineEffect: "NONE" }
+  }
+  if (packet.supersedesId === packet.handoffId) {
+    return { code: "CONFLICT-ID-BODY", state: { ...state, state: "CONFLICT" }, engineEffect: "NONE" }
+  }
+  if (packet.supersedesId && !state.packets[packet.supersedesId]) {
+    return { code: "CONFLICT-SOURCE-MISMATCH", state: { ...state, state: "CONFLICT" }, engineEffect: "NONE" }
   }
   const { semanticFingerprint: fingerprint, ...base } = packet
   if (semanticFingerprint(base) !== fingerprint) {
