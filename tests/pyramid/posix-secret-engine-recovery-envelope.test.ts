@@ -17,6 +17,7 @@ import {
 import {
   RECOVERY_SCHEMA_VERSION,
   createRecoveryEnvelope,
+  recoveryCanonicalJson,
   recoveryEnvelopeHash,
   serializeRecoveryEnvelope,
   verifyRecoveryChain,
@@ -235,6 +236,30 @@ describe("POSITION IX → Secret Engine Recovery Envelope Contract 001", () => {
     expect(a.envelopeHash).toMatch(/^[0-9a-f]{64}$/)
   })
 
+  it("REC-003 recovery canonical JSON uses frozen ordinal key order instead of locale collation", () => {
+    const value = {
+      "ä": 4,
+      "A": 2,
+      "_": 3,
+      "a": 1,
+      "!": 0,
+      nested: {
+        "é": 3,
+        "Z": 1,
+        "z": 2,
+      },
+    }
+    expect(recoveryCanonicalJson(value)).toBe(
+      '{"!":0,"A":2,"_":3,"a":1,"nested":{"Z":1,"z":2,"é":3},"ä":4}',
+    )
+  })
+
+  it("REC-003 recovery canonical JSON is insertion-order independent", () => {
+    const left = { z: 3, A: 1, a: 2, nested: { beta: 2, Alpha: 1 } }
+    const right = { nested: { Alpha: 1, beta: 2 }, a: 2, A: 1, z: 3 }
+    expect(recoveryCanonicalJson(left)).toBe(recoveryCanonicalJson(right))
+  })
+
   it("CODE-002 unsupported schema holds", () => {
     const base = makeEnvelope("TEST-RECOVERY-BAD-SCHEMA")
     const invalid = withRawChange(base, { schemaVersion: "POSIX-SE-RECOVERY-9.9" })
@@ -388,6 +413,35 @@ describe("POSITION IX → Secret Engine Recovery Envelope Contract 001", () => {
       ...structuredClone(base),
       boundaries: ["NON_PRODUCTION_ONLY", "SOURCE_MUTATION_NONE"],
     } as RecoveryEnvelope)
+    expect(verifyRecoveryEnvelope(invalid, policy).code).toBe("RECOVERY-REFUSE-AUTO-RECOVERY")
+  })
+
+  it.each([
+    ["autoAdmit", true],
+    ["auto_admit", true],
+    ["bindSeed", "TEST-SEED-INJECTED"],
+    ["bind-seed", "TEST-SEED-INJECTED"],
+    ["routeCommand", "COMMIT"],
+    ["route_command", "COMMIT"],
+    ["commitRoute", true],
+    ["commit-route", true],
+    ["evaluateRoute", true],
+    ["autoRoute", true],
+  ])("CODE-012 refuses raw forbidden recovery command field %s", (field, value) => {
+    const base = makeEnvelope(`TEST-RECOVERY-FORBIDDEN-${field.replace(/[^A-Za-z0-9]/g, "-")}`)
+    const invalid = withRawChange(base, { [field]: value })
+    expect(verifyRecoveryEnvelope(invalid, policy).code).toBe("RECOVERY-REFUSE-AUTO-RECOVERY")
+  })
+
+  it("CODE-012 refuses forbidden command semantics injected into nested raw envelope content", () => {
+    const base = makeEnvelope("TEST-RECOVERY-NESTED-COMMAND")
+    const invalid = withRawChange(base, {
+      extension: {
+        policy: {
+          bind_seed: "TEST-SEED-INJECTED",
+        },
+      },
+    })
     expect(verifyRecoveryEnvelope(invalid, policy).code).toBe("RECOVERY-REFUSE-AUTO-RECOVERY")
   })
 
