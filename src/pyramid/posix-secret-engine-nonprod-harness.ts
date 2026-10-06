@@ -81,7 +81,10 @@ function authorityStatus(registry: SyntheticAuthorityRegistry, authorityRef: str
 }
 
 export function createDefaultNonprodFixture(
-  overrides: Partial<HarnessFixture> = {},
+  overrides: Omit<Partial<HarnessFixture>, "source" | "authorityRegistry"> & {
+    source?: Partial<PositionIXSource>
+    authorityRegistry?: Partial<SyntheticAuthorityRegistry>
+  } = {},
 ): HarnessFixture {
   const base: HarnessFixture = {
     fixtureId: "TEST-FIXTURE-POSIX-001",
