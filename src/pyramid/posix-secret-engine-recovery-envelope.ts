@@ -97,8 +97,41 @@ function recoveryBody(envelope: Omit<RecoveryEnvelope, "envelopeHash">): unknown
   return envelope
 }
 
+function ordinalKeyCompare(a: string, b: string): number {
+  const length = Math.min(a.length, b.length)
+  for (let index = 0; index < length; index += 1) {
+    const difference = a.charCodeAt(index) - b.charCodeAt(index)
+    if (difference !== 0) return difference
+  }
+  return a.length - b.length
+}
+
+/**
+ * Recovery-local frozen canonical JSON serializer.
+ *
+ * Object keys are ordered by explicit UTF-16 code-unit order. This deliberately
+ * avoids localeCompare/Intl/environment collation. Array order is preserved.
+ * The serializer is scoped to recovery evidence so RuntimeSignature semantics
+ * remain unchanged.
+ */
+export function recoveryCanonicalJson(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value)
+
+  if (Array.isArray(value)) {
+    return `[${value.map(item => recoveryCanonicalJson(item)).join(",")}]`
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([, child]) => child !== undefined)
+    .sort(([a], [b]) => ordinalKeyCompare(a, b))
+
+  return `{${entries
+    .map(([key, child]) => `${JSON.stringify(key)}:${recoveryCanonicalJson(child)}`)
+    .join(",")}}`
+}
+
 export function recoveryEnvelopeHash(envelope: Omit<RecoveryEnvelope, "envelopeHash">): string {
-  return createHash("sha256").update(stableJson(recoveryBody(envelope))).digest("hex")
+  return createHash("sha256").update(recoveryCanonicalJson(recoveryBody(envelope))).digest("hex")
 }
 
 export function createRecoveryEnvelope(input: RecoveryEnvelopeInput): RecoveryEnvelope {
@@ -126,7 +159,7 @@ export function createRecoveryEnvelope(input: RecoveryEnvelopeInput): RecoveryEn
 }
 
 export function serializeRecoveryEnvelope(envelope: RecoveryEnvelope): string {
-  return stableJson(envelope)
+  return recoveryCanonicalJson(envelope)
 }
 
 function fail(code: RecoveryCode, detail: string): RecoveryVerificationResult {
@@ -157,11 +190,39 @@ function hasLiveIdentity(state: InterfaceRuntimeState): boolean {
   return false
 }
 
+const FORBIDDEN_RECOVERY_COMMAND_KEYS = new Set([
+  "autorecover",
+  "resumecommand",
+  "autoadmit",
+  "bindseed",
+  "routecommand",
+  "commitroute",
+  "evaluateroute",
+  "autoroute",
+])
+
+function normalizedCommandKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]/g, "")
+}
+
+function containsForbiddenRecoveryCommandKey(value: unknown): boolean {
+  if (value === null || typeof value !== "object") return false
+
+  if (Array.isArray(value)) {
+    return value.some(item => containsForbiddenRecoveryCommandKey(item))
+  }
+
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (FORBIDDEN_RECOVERY_COMMAND_KEYS.has(normalizedCommandKey(key))) return true
+    if (containsForbiddenRecoveryCommandKey(child)) return true
+  }
+  return false
+}
+
 function hasAutoRecoverySemantics(envelope: RecoveryEnvelope): boolean {
-  const raw = envelope as unknown as Record<string, unknown>
-  if (raw.autoRecover === true || typeof raw.resumeCommand === "string") return true
+  if (containsForbiddenRecoveryCommandKey(envelope)) return true
   const boundaryText = envelope.boundaries.join(" ").toLowerCase()
-  return /\b(auto[ _-]?recover|resume[ _-]?command|auto[ _-]?admit|bind[ _-]?seed|commit[ _-]?route)\b/.test(boundaryText)
+  return /\b(auto[ _-]?recover|resume[ _-]?command|auto[ _-]?admit|bind[ _-]?seed|(?:route|commit|evaluate)[ _-]?route)\b/.test(boundaryText)
 }
 
 function hasRequiredBoundaries(envelope: RecoveryEnvelope): boolean {
