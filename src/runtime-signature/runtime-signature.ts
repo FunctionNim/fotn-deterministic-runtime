@@ -152,3 +152,15 @@ export function buildRuntimeSignature(input: RuntimeSignatureInput): RuntimeSign
     combinedHash,
   };
 }
+
+/**
+ * Verify a claimed runtime signature against canonical structured input.
+ * Pure and deterministic: no mutation, timestamps, or environment dependence.
+ */
+export function verifyRuntimeSignature(
+  input: RuntimeSignatureInput,
+  claimed: RuntimeSignature,
+): boolean {
+  const expected = buildRuntimeSignature(input);
+  return stableJson(expected) === stableJson(claimed);
+}
