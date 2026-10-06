@@ -114,7 +114,7 @@ export function createDefaultNonprodFixture(
     ...base,
     ...overrides,
     source: { ...base.source, ...(overrides.source ?? {}) },
-    authorityRegistry: { ...base.authorityRegistry, ...(overrides.authorityRegistry ?? {}) },
+    authorityRegistry: { ...base.authorityRegistry, ...(overrides.authorityRegistry ?? {}) } as SyntheticAuthorityRegistry,
   }
 }
 
