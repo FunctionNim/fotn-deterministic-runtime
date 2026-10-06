@@ -272,12 +272,12 @@ export function validate(state: InterfaceRuntimeState, handoffId: string): Opera
 }
 
 export function admit(state: InterfaceRuntimeState, context: AdmissionContext): OperationResult {
-  if (state.state !== "ADMISSIBLE_NOT_ADMITTED" || !state.activeHandoffId) {
-    return { code: "DENY-PRECONDITION", state: { ...state, state: "DENIED" }, engineEffect: "NONE" }
-  }
   const existing = state.admissionReceipts[context.operationId]
   if (existing?.decision === "COMMITTED") {
-    return { code: "OK-ALREADY-COMMITTED", state: { ...state, state: "ADMITTED" }, engineEffect: "NONE", receipt: existing }
+    return { code: "OK-ALREADY-COMMITTED", state, engineEffect: "NONE", receipt: existing }
+  }
+  if (state.state !== "ADMISSIBLE_NOT_ADMITTED" || !state.activeHandoffId) {
+    return { code: "DENY-PRECONDITION", state: { ...state, state: "DENIED" }, engineEffect: "NONE" }
   }
   if (!context.authorityRef) {
     return { code: "DENY-NO-AUTHORITY", state: { ...state, state: "DENIED" }, engineEffect: "NONE" }
