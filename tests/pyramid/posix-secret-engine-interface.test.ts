@@ -113,10 +113,12 @@ describe("POSITION IX → Secret Engine conformance fixtures T-001..T-024", () =
     expect(result.state.packets["H-001"].consequenceEvidence).toEqual(["consequence:changed-state"])
   })
 
-  it("T-007 UNKNOWN accountability cannot emit a handoff", () => {
+  it("T-007 UNKNOWN accountability is denied as not accountable", () => {
     const result = emitHandoff(createInterfaceState(), source({ accountabilityState: "UNKNOWN" }), "H-007", observedAt)
-    expect(result.code).toBe("NO-HANDOFF")
+    expect(result.code).toBe("DENY-NOT-ACCOUNTABLE")
     expect(result.engineEffect).toBe("NONE")
+    expect(result.state.state).toBe("NO_PACKET")
+    expect(Object.keys(result.state.packets)).toHaveLength(0)
   })
 
   it("T-008 admission without authority is denied without mutation", () => {
@@ -286,6 +288,67 @@ describe("POSITION IX → Secret Engine conformance fixtures T-001..T-024", () =
     }
 
     expect(run()).toEqual(run())
+  })
+})
+
+describe("promotion drift corrections DRIFT-001..005", () => {
+  it("DRIFT-001 preserves PRE_ROUTE no-output while UNKNOWN is explicitly denied", () => {
+    const preRoute = emitHandoff(createInterfaceState(), source({ accountabilityState: "PRE_ROUTE" }), "H-D1-PRE", observedAt)
+    const unknown = emitHandoff(createInterfaceState(), source({ accountabilityState: "UNKNOWN" }), "H-D1-UNK", observedAt)
+    expect(preRoute.code).toBe("NO-HANDOFF")
+    expect(unknown.code).toBe("DENY-NOT-ACCOUNTABLE")
+    expect(preRoute.engineEffect).toBe("NONE")
+    expect(unknown.engineEffect).toBe("NONE")
+  })
+
+  it("DRIFT-002 rejects a runtime packet whose handoff_type is not ACCOUNTABLE_CONSEQUENCE", () => {
+    let state = emitted()
+    const original = state.packets["H-001"]
+    const invalid = {
+      ...original,
+      handoffType: "WRONG_TYPE",
+    } as unknown as HandoffPacket
+    state = installPacket(createInterfaceState(), invalid)
+    state = observe(state, invalid.handoffId).state
+    const result = validate(state, invalid.handoffId)
+    expect(result.code).toBe("DENY-PRECONDITION")
+    expect(result.engineEffect).toBe("NONE")
+  })
+
+  it("DRIFT-003 refuses a next_lawful_edge that commands admission", () => {
+    const state = observed(source({ nextLawfulEdge: "ADMIT_NOW" }))
+    const result = validate(state, "H-001")
+    expect(result.code).toBe("REFUSE-AUTO-ADMIT")
+    expect(result.engineEffect).toBe("NONE")
+  })
+
+  it("DRIFT-004 rejects self-supersession", () => {
+    let state = emitted()
+    const original = state.packets["H-001"]
+    const invalid = clonePacketWith(original, { supersedesId: "H-001" })
+    state = installPacket(createInterfaceState(), invalid)
+    state = observe(state, invalid.handoffId).state
+    const result = validate(state, invalid.handoffId)
+    expect(result.code).toBe("CONFLICT-ID-BODY")
+    expect(result.engineEffect).toBe("NONE")
+  })
+
+  it("DRIFT-004 rejects a dangling supersedes_id", () => {
+    let state = emitted()
+    const original = state.packets["H-001"]
+    const invalid = clonePacketWith(original, { supersedesId: "H-NOT-PRESENT" })
+    state = installPacket(createInterfaceState(), invalid)
+    state = observe(state, invalid.handoffId).state
+    const result = validate(state, invalid.handoffId)
+    expect(result.code).toBe("CONFLICT-SOURCE-MISMATCH")
+    expect(result.engineEffect).toBe("NONE")
+  })
+
+  it("DRIFT-005 rejects an empty handoff_id before packet creation", () => {
+    const result = emitHandoff(createInterfaceState(), source(), "   ", observedAt)
+    expect(result.code).toBe("HOLD-MISSING-FIELD")
+    expect(result.engineEffect).toBe("NONE")
+    expect(Object.keys(result.state.packets)).toHaveLength(0)
   })
 })
 
