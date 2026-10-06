@@ -115,7 +115,11 @@ function ordinalKeyCompare(a: string, b: string): number {
  * remain unchanged.
  */
 export function recoveryCanonicalJson(value: unknown): string {
-  if (value === null || typeof value !== "object") return JSON.stringify(value)
+  if (value === null || typeof value !== "object") {
+    const serialized = JSON.stringify(value)
+    if (serialized === undefined) throw new TypeError("Recovery canonical JSON cannot encode undefined")
+    return serialized
+  }
 
   if (Array.isArray(value)) {
     return `[${value.map(item => recoveryCanonicalJson(item)).join(",")}]`
