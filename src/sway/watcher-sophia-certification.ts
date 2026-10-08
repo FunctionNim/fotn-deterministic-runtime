@@ -52,7 +52,10 @@ export function jointCertification(claim:EvidenceClaim,evidence:readonly Trusted
  // Recompute both receipts from trusted inputs; never accept claimant-supplied verdicts.
  const watcher=watcherVerify(claim,evidence);
  const sophia=sophiaQualify(claim,watcher,ruleId,ruleRevision,rules);
- const status:CertificationState=watcher.status==="VERIFIED"&&
- sophia.status==="PASS"?"PASS":"HOLD";
+ // Caller supplies both evidence and rule arrays. They are not authenticated trust roots.
+ // A distinct custodianId string and a matching allowlist are never sufficient
+ // for a certification PASS. This legacy entrypoint is intentionally fail-closed
+ // until an independently controlled source-and-rule provider is implemented.
+ const status:CertificationState="HOLD";
  return Object.freeze({status,watcher,sophia,scope:"technical-prototype-only",governingAcceptance:false});
 }
