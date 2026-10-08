@@ -1,0 +1,16 @@
+import {describe,it,expect} from "vitest";
+import {googleDocsAbilityReader,googleDocsCouncilRuleReader} from "../../src/sway/watcher-sophia-google-docs.js";
+const wrapped=(text:string,rev="rev")=>({revisionId:rev,tabs:[{tabProperties:{tabId:"fixture-tab"},documentTab:{body:{content:[{paragraph:{elements:[{textRun:{content:text}}]}}]}}}]});
+const q=(response:unknown,ok=true)=>async (_u:string,_i:unknown)=>({ok,json:async()=>response});
+describe("Google Docs authenticated source reader contracts",()=>{
+it("extracts explicit source field from authenticated pinned tab",async()=>{const r=googleDocsAbilityReader({documentId:"doc",revisionId:"rev",tabId:"fixture-tab",token:async()=> "oauth",request:q(wrapped("Permission Signaling; Moderate Poison; Restricted; one misleading access sign; Local; repair"))});expect((await r.readDocument("doc"))?.fields.abilityId).toBe("Permission Signaling")});
+it("holds when source document ID differs",async()=>{const r=googleDocsAbilityReader({documentId:"doc",revisionId:"rev",tabId:"fixture-tab",token:async()=> "oauth",request:q(wrapped("any"))});expect(await r.readDocument("wrong")).toBeNull()});
+it("holds source revision drift",async()=>{const r=googleDocsAbilityReader({documentId:"doc",revisionId:"pinned",tabId:"fixture-tab",token:async()=> "oauth",request:q(wrapped("any"))});expect(await r.readDocument("doc")).toBeNull()});
+it("holds missing authenticated token",async()=>{const r=googleDocsAbilityReader({documentId:"doc",revisionId:"rev",tabId:"fixture-tab",token:async()=> "",request:q(wrapped("any"))});expect(await r.readDocument("doc")).toBeNull()});
+it("holds missing tab and absent evidence",async()=>{const r=googleDocsAbilityReader({documentId:"doc",revisionId:"rev",tabId:"missing",token:async()=> "oauth",request:q(wrapped("any"))});expect(await r.readDocument("doc")).toBeNull()});
+it("does not derive absent abilities",async()=>{const r=googleDocsAbilityReader({documentId:"doc",revisionId:"rev",tabId:"fixture-tab",token:async()=> "oauth",request:q(wrapped("no scenario"))});expect((await r.readDocument("doc"))?.fields).toEqual({})});
+it("rejects failed HTTP response",async()=>{const r=googleDocsAbilityReader({documentId:"doc",revisionId:"rev",tabId:"fixture-tab",token:async()=> "oauth",request:q(wrapped("any"),false)});expect(await r.readDocument("doc")).toBeNull()});
+it("recognizes source-backed Council trace rule but grants no SWAY fields",async()=>{const r=googleDocsCouncilRuleReader({documentId:"council",revisionId:"rev",token:async()=> "oauth",request:q(wrapped("Gold remembers trace and reveals; it does not control."))});const v=await r.readRule("Council.GoldTrace");expect(v?.authenticated).toBe(true);expect(v?.allowedFields).toEqual([])});
+it("rejects Council source without exact wording",async()=>{const r=googleDocsCouncilRuleReader({documentId:"council",revisionId:"rev",token:async()=> "oauth",request:q(wrapped("not the Council rule"))});expect(await r.readRule("Council.GoldTrace")).toBeNull()});
+it("rejects invented Council rule identifiers",async()=>{const r=googleDocsCouncilRuleReader({documentId:"council",revisionId:"rev",token:async()=> "oauth",request:q(wrapped("any"))});expect(await r.readRule("invented")).toBeNull()});
+});

@@ -1,0 +1,23 @@
+import {describe,it,expect} from "vitest";
+import {makeCouncilCertificationGateway} from "../../src/sway/watcher-sophia-trusted-gateway.js";
+const claim={claimId:"a",claimantId:"claimant",sourceId:"doc",revision:"r1",field:"abilityId",value:"Permission Signaling",evidenceId:"x"};
+const goodSource={provider:"google-drive" as const,documentId:"doc",revisionId:"r1",fields:{abilityId:"Permission Signaling"},authenticated:true};
+const goodRule={provider:"council-rule-registry" as const,ruleId:"rule",revisionId:"v1",allowedFields:["abilityId"],authenticated:true};
+const make=(src:any=goodSource,rule:any=goodRule)=>makeCouncilCertificationGateway({readDocument:async()=>src},{readRule:async()=>rule});
+const check=(fn:any,c=claim)=>fn({claim:c,ruleId:"rule",ruleRevision:"v1"});
+describe("host-provisioned source and Council rule gateway",()=>{
+it("separates qualified source/rule from actual certification",async()=>{const r=await check(make());expect(r.status).toBe("HOLD");expect(r.sourceState).toBe("VERIFIED");expect(r.ruleState).toBe("VERIFIED")});
+it("rejects unverified source",async()=>expect((await check(make({...goodSource,authenticated:false}))).sourceState).toBe("HELD"));
+it("rejects incorrect source identity",async()=>expect((await check(make({...goodSource,documentId:"fake"}))).sourceState).toBe("HELD"));
+it("rejects source revision drift",async()=>expect((await check(make({...goodSource,revisionId:"r2"}))).sourceState).toBe("HELD"));
+it("rejects unsupported claimed field",async()=>expect((await check(make({...goodSource,fields:{}}))).sourceState).toBe("HELD"));
+it("rejects altered field value",async()=>expect((await check(make({...goodSource,fields:{abilityId:"other"}}))).sourceState).toBe("HELD"));
+it("rejects missing source provider",async()=>expect((await check(make(null))).status).toBe("HOLD"));
+it("rejects source retrieval failure",async()=>{const g=makeCouncilCertificationGateway({readDocument:async()=>{throw Error("denied")}}, {readRule:async()=>goodRule});expect((await check(g)).sourceState).toBe("HELD")});
+it("rejects unauthenticated Council rule",async()=>expect((await check(make(goodSource,{...goodRule,authenticated:false}))).ruleState).toBe("HELD"));
+it("rejects forged Council rule",async()=>expect((await check(make(goodSource,{...goodRule,ruleId:"forged"}))).ruleState).toBe("HELD"));
+it("rejects changed Council rule revision",async()=>expect((await check(make(goodSource,{...goodRule,revisionId:"v2"}))).ruleState).toBe("HELD"));
+it("rejects unauthorized Council rule field",async()=>expect((await check(make(goodSource,{...goodRule,allowedFields:[]}))).ruleState).toBe("HELD"));
+it("rejects Council registry failure",async()=>{const g=makeCouncilCertificationGateway({readDocument:async()=>goodSource},{readRule:async()=>{throw Error("no access")}});expect((await check(g)).ruleState).toBe("HELD")});
+it("does not accept claimant supplied source and rules from request",async()=>{const g=make(null,null);const r=await g({claim,ruleId:"rule",ruleRevision:"v1",evidence:[goodSource],rules:[goodRule]} as any);expect(r.status).toBe("HOLD")});
+});
