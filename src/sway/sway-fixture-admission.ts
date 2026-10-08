@@ -2,6 +2,7 @@
  * Source expected outcomes are frozen independently of candidate resolver behavior.
  */
 import type { FormResult, CooperationResult, FailureCode } from "./sway-resolver.js";
+import { indexedFieldAttested } from "./sway-source-evidence-index.js";
 export type EvidenceStatus = "SourceExplicit" | "SourceDerived" | "Synthetic" | "Unknown";
 export type Observation<T> =
   | { state:"Observed"; value:T; sourceRef:string }
@@ -72,6 +73,7 @@ export function qualifyFixture(f:FixtureAdmission, authenticator?:EvidenceAuthen
     if(field.status==="SourceDerived"&&!field.ruleRef) reasons.push("Missing derivation rule: "+name);
     if((field.status==="SourceExplicit" || field.status==="SourceDerived") && field.value!==null) {
       if(field.evidenceIds.length===0) reasons.push("Evidence identifiers absent: "+name);
+      if(!field.sourceRef || !indexedFieldAttested({fixtureId:f.fixtureId,sourceRevision:f.sourceRevision,fieldName:name,value:field.value,sourceRef:field.sourceRef,status:field.status,evidenceIds:field.evidenceIds,ruleRef:field.ruleRef})) reasons.push("Source index does not support field: "+name);
       if(!authenticator || !field.sourceRef || !authenticator.fieldAttested({
         fixtureId:f.fixtureId,sourceRevision:f.sourceRevision,fieldName:name,value:field.value,
         sourceRef:field.sourceRef,status:field.status,evidenceIds:field.evidenceIds,ruleRef:field.ruleRef

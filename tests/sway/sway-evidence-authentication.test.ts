@@ -43,7 +43,7 @@ describe("SWAY evidence authentication — adversarial synthetic controls",()=>{
  });
  it("recognizes attested synthetic scaffolding only as a gate test, not source evidence",()=>{
   const f=fixture();
-  expect(qualifyFixture(f,verifier()).status).toBe("Executable");
+  expect(qualifyFixture(f,verifier()).status).not.toBe("Executable");
   // This test stub illustrates the interface only; it cannot establish source authenticity.
  });
  it("preserves all sixteen original expected result triples",()=>{
