@@ -40,7 +40,21 @@ export interface FixtureAdmission {
   expected:FrozenExpected;
 }
 export interface AdmissionResult { status:"Executable"|"Partial"|"Held"; reasons:readonly string[] }
-export function qualifyFixture(f:FixtureAdmission):AdmissionResult {
+/** Independent attestation interface. The verifier must be supplied by a trusted caller,
+ * never constructed from the fixture's own claims. A positive return is only
+ * meaningful if the verifier checks evidence bytes/identities and rule provenance.
+ */
+export interface EvidenceAuthenticator {
+  fieldAttested(input:{
+    fixtureId:string; sourceRevision:string; fieldName:string;
+    value:unknown; sourceRef:string; status:"SourceExplicit"|"SourceDerived";
+    evidenceIds:readonly string[]; ruleRef:string|null;
+  }):boolean;
+  observationAttested(input:{
+    fixtureId:string; sourceRevision:string; value:string; sourceRef:string;
+  }):boolean;
+}
+export function qualifyFixture(f:FixtureAdmission, authenticator?:EvidenceAuthenticator):AdmissionResult {
   const expected=FROZEN_SWAY_EXPECTATIONS[f.fixtureId];
   if(!expected) return {status:"Held",reasons:["Unknown source fixture ID"]};
   const reasons:string[]=[];
@@ -56,12 +70,24 @@ export function qualifyFixture(f:FixtureAdmission):AdmissionResult {
     if(field.status==="Synthetic") reasons.push("Synthetic value cannot qualify source-native fixture: "+name);
     if(!field.sourceRef) reasons.push("Missing source reference: "+name);
     if(field.status==="SourceDerived"&&!field.ruleRef) reasons.push("Missing derivation rule: "+name);
+    if((field.status==="SourceExplicit" || field.status==="SourceDerived") && field.value!==null) {
+      if(field.evidenceIds.length===0) reasons.push("Evidence identifiers absent: "+name);
+      if(!authenticator || !field.sourceRef || !authenticator.fieldAttested({
+        fixtureId:f.fixtureId,sourceRevision:f.sourceRevision,fieldName:name,value:field.value,
+        sourceRef:field.sourceRef,status:field.status,evidenceIds:field.evidenceIds,ruleRef:field.ruleRef
+      })) reasons.push("Independent field attestation absent: "+name);
+    }
   }
   if(f.initialCooperationObservation.state!=="Observed")
     reasons.push("Initial Cooperation State not independently observed");
   if(f.initialCooperationObservation.state==="Observed" &&
       f.fields.initialCooperationState?.value!==f.initialCooperationObservation.value)
     reasons.push("Cooperation State observation mismatch");
+  if(f.initialCooperationObservation.state==="Observed" &&
+      (!authenticator || !authenticator.observationAttested({
+        fixtureId:f.fixtureId,sourceRevision:f.sourceRevision,
+        value:f.initialCooperationObservation.value,sourceRef:f.initialCooperationObservation.sourceRef
+      }))) reasons.push("Independent cooperation observation attestation absent");
   if(f.fixtureId==="X3" && f.initialCooperationObservation.state!=="Unassessed")
     reasons.push("X3 source observation is Unassessed; cannot promote the erroneous Isolated claim");
   if(f.fixtureId==="X3") reasons.push("X3 requires a separately authorized state-collapse assertion model");
