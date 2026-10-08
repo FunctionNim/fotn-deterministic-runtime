@@ -1,10 +1,21 @@
-import {describe,it,expect} from 'vitest';
-import {jointCertification} from '../../src/sway/watcher-sophia-certification.js';
-describe('untrusted candidate evidence',()=>{
- it('must not issue a certificate',()=>{
-  const c={claimId:'c',claimantId:'a',sourceId:'s',revision:'v',field:'f',value:'x',evidenceId:'e'};
-  const e=[{custodianId:'b',sourceId:'s',revision:'v',field:'f',value:'x',evidenceId:'e'}];
-  const rules=[{ruleId:'r',revision:'v',allowedFields:['f']}];
-  expect(jointCertification(c,e,'r','v',rules).status).toBe('HOLD');
- });
+import {describe,it,expect} from "vitest";
+import {jointCertification,watcherVerify,sophiaQualify,type EvidenceClaim,type TrustedEvidence,type TrustedRule} from "../../src/sway/watcher-sophia-certification.js";
+const claim:EvidenceClaim={claimId:"trial",claimantId:"submitter",sourceId:"doc",revision:"r1",field:"abilityId",value:"Permission Signaling",evidenceId:"e1"};
+const trusted:readonly TrustedEvidence[]=[{custodianId:"other",sourceId:"doc",revision:"r1",field:"abilityId",value:"Permission Signaling",evidenceId:"e1"}];
+const rules:readonly TrustedRule[]=[{ruleId:"rule",revision:"v1",allowedFields:["abilityId"]}];
+const issue=(c:EvidenceClaim=claim,e:readonly TrustedEvidence[]=trusted,r:readonly TrustedRule[]=rules)=>jointCertification(c,e,"rule","v1",r);
+describe("Council Watcher Sophia caller-control adversarial regression",()=>{
+it("matches are not sufficient to certify",()=>{const v=issue();expect(v.status).toBe("HOLD");expect(v.governingAcceptance).toBe(false)});
+it("fabricated source cannot certify",()=>expect(issue({...claim,sourceId:"invented"},[{...trusted[0],sourceId:"invented"}]).status).toBe("HOLD"));
+it("revision drift cannot certify",()=>expect(issue({...claim,revision:"later"},[{...trusted[0],revision:"later"}]).status).toBe("HOLD"));
+it("fabricated evidence identifier cannot certify",()=>expect(issue({...claim,evidenceId:"made-up"},[{...trusted[0],evidenceId:"made-up"}]).status).toBe("HOLD"));
+it("forged custodian identity cannot certify",()=>expect(issue(claim,[{...trusted[0],custodianId:"new-person"}]).status).toBe("HOLD"));
+it("same claimant as custodian remains held",()=>expect(issue(claim,[{...trusted[0],custodianId:claim.claimantId}]).status).toBe("HOLD"));
+it("fabricated rule cannot certify",()=>expect(issue(claim,trusted,[{ruleId:"rule",revision:"v1",allowedFields:["abilityId"]}]).status).toBe("HOLD"));
+it("missing evidence cannot certify",()=>expect(issue(claim,[]).status).toBe("HOLD"));
+it("missing rule cannot certify",()=>expect(issue(claim,trusted,[]).status).toBe("HOLD"));
+it("rule revision drift remains held",()=>expect(jointCertification(claim,trusted,"rule","v2",rules).status).toBe("HOLD"));
+it("missing claim provenance remains held",()=>expect(issue({...claim,sourceId:""}).status).toBe("HOLD"));
+it("source verifier reports unverified on mismatch",()=>expect(watcherVerify({...claim,value:"fake"},trusted).status).toBe("UNVERIFIED"));
+it("rule verifier holds unsupported source",()=>expect(sophiaQualify(claim,watcherVerify(claim,[]),"rule","v1",rules).status).toBe("HOLD"));
 });
