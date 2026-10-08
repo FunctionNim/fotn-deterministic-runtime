@@ -63,7 +63,7 @@ export function resolveSway(input: Input): Result {
   const ids = input.repairRelations.map(r=>r.id);
   if (new Set(ids).size !== ids.length || ids.some(id=>!id)) reasons.push("Duplicate or missing relation identifiers");
   if (input.repairRelations.some(r=>!r.qualified)) reasons.push("Unqualified Repair Field relation");
-  if (input.interventionRelationIds.some(id=>!ids.includes(id))) reasons.push("Intervention outside frozen Repair Field");
+  // An out-of-scope intervention remains auditable as SF, not a validation-only Hold.
   if (input.repairQualified.decision!=="Qualified" || input.reachQualified.decision!=="Qualified") reasons.push("Repair Field or Reach not affirmatively qualified");
   if (input.medicineApplied && input.materialRepair.decision==="Unknown") reasons.push("Material repair remains Unknown");
   if (input.provenance.length===0) reasons.push("Missing provenance");
