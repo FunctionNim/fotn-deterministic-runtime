@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import {
   __dispatchSyntheticRestartTargetCommandForReentry,
+  isPromotedSyntheticRestartInstallTarget,
   restartInstallStateFingerprint,
   SyntheticRestartInstallTarget,
   type RestartInstallReceipt,
@@ -295,6 +296,10 @@ export class SyntheticPostInstallReentrySession {
     }
     if (typeof rawInput.openedAt !== "string" || rawInput.openedAt.length === 0) {
       return fail("REENTRY-CONFLICT-DETERMINISM", "openedAt must be caller-supplied fixed text or UNKNOWN")
+    }
+
+    if (!isPromotedSyntheticRestartInstallTarget(target)) {
+      return fail("REENTRY-INVALID-TARGET", "Target is not a promoted synthetic install target")
     }
 
     let targetSnapshot: RestartInstallTargetSnapshot
