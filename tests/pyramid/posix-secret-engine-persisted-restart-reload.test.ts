@@ -375,11 +375,7 @@ describe("POSITION IX → Secret Engine persisted restart/reload integration con
 
   it("PRR-024 rejects sourceMutation field in adversarial raw input", async () => {
     const envelope = makeEnvelope("TEST-RECOVERY-RESTART-SOURCE-MUT")
-    const store: PersistedRestartStoreReader = {
-      async loadVerifiedChain() {
-        throw new Error("must not be called")
-      },
-    }
+    const store = makeStore()
     const outcome = await preparePersistedRestart(store, {
       ...restartInput(envelope),
       sourceMutation: "WRITE",
