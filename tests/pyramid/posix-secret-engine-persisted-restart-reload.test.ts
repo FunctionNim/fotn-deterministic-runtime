@@ -20,17 +20,15 @@ import {
 import {
   LocalTempRecoveryStore,
   RECOVERY_STORE_SCHEMA_VERSION,
-  type RecoveryStoreResult,
 } from "../../src/pyramid/posix-secret-engine-local-temp-recovery-store.js"
 import {
   PERSISTED_RESTART_SCHEMA_VERSION,
   persistedRestartPacketHash,
   preparePersistedRestart,
-  verifyRestartCandidatePacket,
   type PersistedRestartInput,
-  type PersistedRestartStoreReader,
   type RestartCandidatePacket,
 } from "../../src/pyramid/posix-secret-engine-persisted-restart-reload.js"
+import * as persistedRestartModule from "../../src/pyramid/posix-secret-engine-persisted-restart-reload.js"
 
 const RUNTIME_BASELINE = "308a8f4e270a56adc728712b177a347252c22abc"
 const policy: RecoveryVerificationPolicy = {
@@ -250,17 +248,10 @@ describe("POSITION IX → Secret Engine persisted restart/reload integration con
 
     expect(packetHash).toMatch(/^[0-9a-f]{64}$/)
     expect(packetHash).toBe(persistedRestartPacketHash(body))
-    expect(verifyRestartCandidatePacket(packet).code).toBe("RESTART-READY-CANDIDATE")
   })
 
-  it("PRR-003 refuses missing external checkpoint before consulting store", async () => {
-    let calls = 0
-    const store: PersistedRestartStoreReader = {
-      async loadVerifiedChain() {
-        calls += 1
-        throw new Error("must not be called")
-      },
-    }
+  it("PRR-003 refuses missing external checkpoint before any store-readiness path", async () => {
+    const store = makeStore()
     const outcome = await preparePersistedRestart(store, {
       restartSessionId: "TEST-RESTART-MISSING-CHECKPOINT",
       createdAt: "UNKNOWN",
@@ -268,24 +259,22 @@ describe("POSITION IX → Secret Engine persisted restart/reload integration con
     })
 
     expect(outcome.code).toBe("RESTART-HOLD-CHECKPOINT-REQUIRED")
-    expect(calls).toBe(0)
   })
 
-  it("PRR-006 treats LOCAL_INTEGRITY_ONLY as non-restart-ready", async () => {
+  it("PRR-006 local-only evidence remains inspectable but cannot bypass external checkpoint readiness", async () => {
+    const store = makeStore()
     const envelope = makeEnvelope("TEST-RECOVERY-RESTART-LOCAL")
-    const store: PersistedRestartStoreReader = {
-      async loadVerifiedChain(): Promise<RecoveryStoreResult> {
-        return {
-          code: "STORE-LOCAL-INTEGRITY-ONLY",
-          effect: "NONE",
-          observedHead: { sequence: 0, envelopeHash: envelope.envelopeHash },
-          detail: "local only",
-        }
-      },
-    }
+    await store.append(envelope)
 
-    const outcome = await preparePersistedRestart(store, restartInput(envelope))
-    expect(outcome.code).toBe("RESTART-HOLD-LOCAL-INTEGRITY-ONLY")
+    const local = await store.loadVerifiedChain()
+    expect(local.code).toBe("STORE-LOCAL-INTEGRITY-ONLY")
+
+    const outcome = await preparePersistedRestart(store, {
+      restartSessionId: "TEST-RESTART-LOCAL-NO-CHECKPOINT",
+      createdAt: "UNKNOWN",
+      allowedRuntimeArtifactRefs: [RUNTIME_BASELINE],
+    })
+    expect(outcome.code).toBe("RESTART-HOLD-CHECKPOINT-REQUIRED")
     expect(outcome.packet).toBeUndefined()
   })
 
@@ -335,22 +324,15 @@ describe("POSITION IX → Secret Engine persisted restart/reload integration con
     expect(outcome.packet).toBeUndefined()
   })
 
-  it("PRR-002 refuses live restart identity before store load", async () => {
+  it("PRR-002 refuses live restart identity before readiness", async () => {
     const envelope = makeEnvelope("TEST-RECOVERY-RESTART-LIVE")
-    let calls = 0
-    const store: PersistedRestartStoreReader = {
-      async loadVerifiedChain() {
-        calls += 1
-        return { code: "STORE-VALID-CANDIDATE", effect: "NONE" }
-      },
-    }
+    const store = makeStore()
 
     const outcome = await preparePersistedRestart(store, {
       ...restartInput(envelope),
       restartSessionId: "LIVE-RESTART-001",
     })
     expect(outcome.code).toBe("RESTART-REFUSE-LIVE-ID")
-    expect(calls).toBe(0)
   })
 
   it.each([
@@ -365,13 +347,7 @@ describe("POSITION IX → Secret Engine persisted restart/reload integration con
     ["Return", true],
   ])("PRR-021/022 rejects raw installation or runtime-command field %s", async (key, value) => {
     const envelope = makeEnvelope(`TEST-RECOVERY-RESTART-REFUSE-${key}`)
-    let calls = 0
-    const store: PersistedRestartStoreReader = {
-      async loadVerifiedChain() {
-        calls += 1
-        return { code: "STORE-VALID-CANDIDATE", effect: "NONE" }
-      },
-    }
+    const store = makeStore()
     const raw = {
       ...restartInput(envelope),
       [key]: value,
@@ -379,7 +355,6 @@ describe("POSITION IX → Secret Engine persisted restart/reload integration con
 
     const outcome = await preparePersistedRestart(store, raw)
     expect(outcome.code).toBe("RESTART-REFUSE-INSTALLATION")
-    expect(calls).toBe(0)
   })
 
   it.each([
@@ -389,11 +364,7 @@ describe("POSITION IX → Secret Engine persisted restart/reload integration con
     ["repair", true],
   ])("PRR-023 rejects raw store-mutation field %s", async (key, value) => {
     const envelope = makeEnvelope(`TEST-RECOVERY-RESTART-STORE-MUT-${key}`)
-    const store: PersistedRestartStoreReader = {
-      async loadVerifiedChain() {
-        throw new Error("must not be called")
-      },
-    }
+    const store = makeStore()
     const outcome = await preparePersistedRestart(store, {
       ...restartInput(envelope),
       [key]: value,
@@ -417,20 +388,41 @@ describe("POSITION IX → Secret Engine persisted restart/reload integration con
     expect(outcome.code).toBe("RESTART-REFUSE-SOURCE-MUTATION")
   })
 
-  it("PRR-008 defensively rejects STORE-VALID-CANDIDATE without matching head/candidate", async () => {
-    const envelope = makeEnvelope("TEST-RECOVERY-RESTART-DEFENSIVE")
-    const store: PersistedRestartStoreReader = {
+  it("RC-PR06 rejects a plain structural reader forged as LocalTempRecoveryStore", async () => {
+    const envelope = makeEnvelope("TEST-RECOVERY-RESTART-FORGED-READER")
+    let calls = 0
+    const forged = {
       async loadVerifiedChain() {
+        calls += 1
         return {
           code: "STORE-VALID-CANDIDATE",
           effect: "NONE",
           observedHead: { sequence: 0, envelopeHash: envelope.envelopeHash },
         }
       },
+    } as unknown as LocalTempRecoveryStore
+
+    const outcome = await preparePersistedRestart(forged, restartInput(envelope))
+    expect(outcome.code).toBe("RESTART-INVALID-STORE-EVIDENCE")
+    expect(calls).toBe(0)
+  })
+
+  it("RC-PR06 rejects a branded store whose promoted verification method is shadowed", async () => {
+    const envelope = makeEnvelope("TEST-RECOVERY-RESTART-SHADOWED-STORE")
+    const store = makeStore()
+    let calls = 0
+    ;(store as unknown as { loadVerifiedChain: () => Promise<unknown> }).loadVerifiedChain = async () => {
+      calls += 1
+      return {
+        code: "STORE-VALID-CANDIDATE",
+        effect: "NONE",
+        observedHead: { sequence: 0, envelopeHash: envelope.envelopeHash },
+      }
     }
 
     const outcome = await preparePersistedRestart(store, restartInput(envelope))
-    expect(outcome.code).toBe("RESTART-CONFLICT-CANDIDATE")
+    expect(outcome.code).toBe("RESTART-INVALID-STORE-EVIDENCE")
+    expect(calls).toBe(0)
   })
 
   it("PRR-010/013 packet ancestry carries source lineage, restart attempt, and checkpoint identity", async () => {
@@ -483,14 +475,43 @@ describe("POSITION IX → Secret Engine persisted restart/reload integration con
     expect(record.commitRoute).toBeUndefined()
   })
 
-  it("verifyRestartCandidatePacket refuses tampered packet hash", async () => {
-    const store = makeStore()
-    const envelope = makeEnvelope("TEST-RECOVERY-RESTART-TAMPER-PACKET")
-    await store.append(envelope)
-    const outcome = await preparePersistedRestart(store, restartInput(envelope))
-    const packet = structuredClone(outcome.packet) as RestartCandidatePacket
-    ;(packet as unknown as { createdAt: string }).createdAt = "tampered"
+  it("RC-PR05 exposes no standalone packet verifier that can mint restart readiness", async () => {
+    expect(
+      (persistedRestartModule as unknown as Record<string, unknown>).verifyRestartCandidatePacket,
+    ).toBeUndefined()
 
-    expect(verifyRestartCandidatePacket(packet).code).toBe("RESTART-INVALID-PACKET-HASH")
+    const store = makeStore()
+    const envelope = makeEnvelope("TEST-RECOVERY-RESTART-FORGED-PACKET")
+    const forged = {
+      schemaVersion: PERSISTED_RESTART_SCHEMA_VERSION,
+      canonicalVersion: "POSIX-SE-RESTART-PACKET-CANONICAL-1",
+      restartSessionId: "TEST-RESTART-FORGED-PACKET",
+      expectedCheckpoint: {
+        sequence: envelope.sequence,
+        envelopeHash: envelope.envelopeHash,
+      },
+      createdAt: "UNKNOWN",
+      allowedRuntimeArtifactRefs: [RUNTIME_BASELINE],
+      sourceCheckpoint: {
+        sequence: envelope.sequence,
+        envelopeHash: envelope.envelopeHash,
+      },
+      envelopeId: envelope.envelopeId,
+      sequence: envelope.sequence,
+      runtimeArtifactRef: envelope.runtimeArtifactRef,
+      stateSnapshot: envelope.stateSnapshot,
+      runtimeSignature: envelope.runtimeSignature,
+      ancestry: envelope.ancestry,
+      boundaries: [
+        "NON_PRODUCTION_ONLY",
+        "NO_RUNTIME_INSTALL",
+        "SOURCE_MUTATION_NONE",
+        "CHECKPOINT_REQUIRED",
+      ],
+    } as Record<string, unknown>
+
+    const outcome = await preparePersistedRestart(store, forged)
+    expect(outcome.code).not.toBe("RESTART-READY-CANDIDATE")
+    expect(outcome.packet).toBeUndefined()
   })
 })
