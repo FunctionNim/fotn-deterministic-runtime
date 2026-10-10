@@ -357,10 +357,11 @@ export async function preparePersistedRestart(
   const parsed = parseInput(rawInput)
   if ("code" in parsed) return parsed
 
-  if (!isPromotedLocalTempRecoveryStore(store)) {
+  if (!isPromotedLocalTempRecoveryStore(store) ||
+      store.loadVerifiedChain !== LocalTempRecoveryStore.prototype.loadVerifiedChain) {
     return fail(
       "RESTART-INVALID-STORE-EVIDENCE",
-      "Persisted restart requires an actual promoted LocalTempRecoveryStore instance",
+      "Persisted restart requires an unmodified promoted LocalTempRecoveryStore instance",
     )
   }
 
