@@ -1,4 +1,5 @@
 import { mkdtemp, mkdir, readFile, readdir, rename, rm, symlink, writeFile } from "node:fs/promises"
+import { writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
@@ -411,6 +412,73 @@ describe("POSITION IX → Secret Engine local-temp recovery store contract 001",
     const outcome = await store.append(stale, { expectedObservedHead: observedGenesis })
     expect(outcome.code).toBe("STORE-CONFLICT-HEAD-CHANGED")
     expect((await readdir(root)).filter(name => name.endsWith(".json"))).toHaveLength(2)
+  })
+
+  it("RST-011 true concurrent writers from the same observed head allow only one conflicting descendant", async () => {
+    const store = makeStore()
+    const genesis = makeEnvelope("TEST-RECOVERY-STORE-CONCURRENT-0")
+    const first = await store.append(genesis)
+    const observedGenesis = first.observedHead as RecoveryStoreObservedHead
+
+    const left = makeEnvelope("TEST-RECOVERY-STORE-CONCURRENT-L", {
+      sequence: 1,
+      previousEnvelopeHash: genesis.envelopeHash,
+    })
+    const right = makeEnvelope("TEST-RECOVERY-STORE-CONCURRENT-R", {
+      sequence: 1,
+      previousEnvelopeHash: genesis.envelopeHash,
+      commands: commandsForUnknown("TEST-OP-STORE-CONCURRENT-R"),
+    })
+
+    const outcomes = await Promise.all([
+      store.append(left, { expectedObservedHead: observedGenesis }),
+      store.append(right, { expectedObservedHead: observedGenesis }),
+    ])
+    const codes = outcomes.map(outcome => outcome.code).sort()
+
+    expect(codes).toEqual(["STORE-CONFLICT-HEAD-CHANGED", "STORE-OK-STORED"].sort())
+    const finalized = (await readdir(root)).filter(name => name.endsWith(".json"))
+    expect(finalized).toHaveLength(2)
+    expect(finalized.some(name => name.includes(left.envelopeHash))).not.toBe(
+      finalized.some(name => name.includes(right.envelopeHash)),
+    )
+  })
+
+  it("RST-011 concurrent exact duplicate retries converge to one stored record", async () => {
+    const store = makeStore()
+    const genesis = makeEnvelope("TEST-RECOVERY-STORE-CONCURRENT-DUP")
+
+    const outcomes = await Promise.all([
+      store.append(genesis),
+      store.append(genesis),
+    ])
+    const codes = outcomes.map(outcome => outcome.code).sort()
+
+    expect(codes).toEqual(["STORE-OK-ALREADY-STORED", "STORE-OK-STORED"].sort())
+    expect((await readdir(root)).filter(name => name.endsWith(".json"))).toHaveLength(1)
+  })
+
+  it("RST-012 retries a deterministic staging-name collision with a fresh identity", async () => {
+    let calls = 0
+    const collisionName = ".posix-se-store-TEST-STORE-001-forced-collision.tmp"
+    const store = makeStore({
+      stagingIdentityFactory: () => {
+        calls += 1
+        if (calls === 1) {
+          writeFileSync(join(root, collisionName), "occupied", { flag: "wx" })
+          return "forced-collision"
+        }
+        return "retry-success"
+      },
+    })
+
+    const envelope = makeEnvelope("TEST-RECOVERY-STORE-STAGING-COLLISION")
+    const outcome = await store.append(envelope)
+
+    expect(outcome.code).toBe("STORE-OK-STORED")
+    expect(calls).toBe(2)
+    expect((await readdir(root)).filter(name => name.endsWith(".json"))).toHaveLength(1)
+    expect(await readFile(join(root, collisionName), "utf8")).toBe("occupied")
   })
 
   it("RST-004/031 refuses symlinked store root", async () => {
