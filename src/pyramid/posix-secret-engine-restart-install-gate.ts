@@ -281,6 +281,14 @@ export class SyntheticRestartInstallTarget {
   }
 }
 
+export function isPromotedSyntheticRestartInstallTarget(
+  value: unknown,
+): value is SyntheticRestartInstallTarget {
+  return typeof value === "object" &&
+    value !== null &&
+    TARGET_RECORDS.has(value as object)
+}
+
 function getTargetRecord(target: SyntheticRestartInstallTarget): TargetRecord | undefined {
   return TARGET_RECORDS.get(target)
 }
