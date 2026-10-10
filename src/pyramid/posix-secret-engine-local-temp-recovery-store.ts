@@ -23,6 +23,8 @@ import {
 
 export const RECOVERY_STORE_SCHEMA_VERSION = "POSIX-SE-RECOVERY-STORE-1.0" as const
 
+const PROMOTED_LOCAL_TEMP_STORE_INSTANCES = new WeakSet<object>()
+
 export type RecoveryStoreCode =
   | "STORE-OK-STORED"
   | "STORE-OK-ALREADY-STORED"
@@ -387,6 +389,7 @@ export class LocalTempRecoveryStore {
 
   constructor(config: RecoveryStoreConfig) {
     this.#config = config
+    PROMOTED_LOCAL_TEMP_STORE_INSTANCES.add(this)
   }
 
   async append(
@@ -540,4 +543,13 @@ export class LocalTempRecoveryStore {
       candidate: verified.candidate,
     })
   }
+}
+
+
+export function isPromotedLocalTempRecoveryStore(
+  value: unknown,
+): value is LocalTempRecoveryStore {
+  return typeof value === "object" &&
+    value !== null &&
+    PROMOTED_LOCAL_TEMP_STORE_INSTANCES.has(value as object)
 }
