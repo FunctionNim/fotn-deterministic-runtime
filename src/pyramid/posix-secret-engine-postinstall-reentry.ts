@@ -94,6 +94,7 @@ export interface PostInstallReentryResult {
   readonly effect: "NONE" | "ENGINE_LOCAL"
   readonly target?: RestartInstallTargetSnapshot
   readonly session?: PostInstallReentrySnapshot
+  readonly sessionHandle?: SyntheticPostInstallReentrySession
   readonly receipt?: PostInstallReentryReceipt
   readonly detail?: string
 }
@@ -338,6 +339,7 @@ export class SyntheticPostInstallReentrySession {
       effect: "NONE",
       target: targetSnapshot,
       session: sessionSnapshot(SESSION_RECORDS.get(session)!),
+      sessionHandle: session,
       detail: "Re-entry session opened without executing any ordinary command",
     }
   }
