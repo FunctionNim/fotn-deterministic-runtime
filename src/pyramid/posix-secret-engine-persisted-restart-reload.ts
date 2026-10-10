@@ -89,6 +89,9 @@ const REQUIRED_BOUNDARIES = [
   "CHECKPOINT_REQUIRED",
 ] as const
 
+const PINNED_PROMOTED_LOAD_VERIFIED_CHAIN =
+  LocalTempRecoveryStore.prototype.loadVerifiedChain
+
 const FORBIDDEN_INPUT_KEYS = new Set([
   "activeruntime",
   "interfaceruntimestate",
@@ -358,16 +361,20 @@ export async function preparePersistedRestart(
   if ("code" in parsed) return parsed
 
   if (!isPromotedLocalTempRecoveryStore(store) ||
-      store.loadVerifiedChain !== LocalTempRecoveryStore.prototype.loadVerifiedChain) {
+      store.loadVerifiedChain !== PINNED_PROMOTED_LOAD_VERIFIED_CHAIN ||
+      LocalTempRecoveryStore.prototype.loadVerifiedChain !== PINNED_PROMOTED_LOAD_VERIFIED_CHAIN) {
     return fail(
       "RESTART-INVALID-STORE-EVIDENCE",
-      "Persisted restart requires an unmodified promoted LocalTempRecoveryStore instance",
+      "Persisted restart requires the pinned promoted LocalTempRecoveryStore verifier",
     )
   }
 
   let storeResult: RecoveryStoreResult
   try {
-    storeResult = await store.loadVerifiedChain(parsed.expectedCheckpoint)
+    storeResult = await PINNED_PROMOTED_LOAD_VERIFIED_CHAIN.call(
+      store,
+      parsed.expectedCheckpoint,
+    )
   } catch {
     return fail("RESTART-INVALID-STORE-EVIDENCE", "Promoted recovery store load failed")
   }
