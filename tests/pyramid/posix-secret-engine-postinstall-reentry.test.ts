@@ -250,7 +250,8 @@ describe("POSITION IX → Secret Engine post-install continuation / runtime re-e
       recordedAt: "2026-10-10T10:14:01Z",
     })
     expect(second.code).toBe("REENTRY-OK-APPLIED")
-    expect(second.receipt?.machineCode).toBe("OK-VALID")
+    expect(second.receipt?.machineCode).toBe("INVALID-FINGERPRINT")
+    expect(second.target?.currentState.state).toBe("HOLD")
     expect(second.receipt?.parentReceiptHash).toBe(first.receipt?.receiptHash)
     expect(second.session?.continuationReceipts).toHaveLength(2)
 
