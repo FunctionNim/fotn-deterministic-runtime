@@ -351,6 +351,47 @@ export class SyntheticPostInstallReentrySession {
   }
 }
 
+function validCommandShape(command: unknown): command is RestartReentryOrdinaryCommand {
+  if (command === null || typeof command !== "object" || !("type" in command)) return false
+  const value = command as Record<string, unknown>
+  switch (value.type) {
+    case "EMIT_HANDOFF":
+      return value.source !== null &&
+        typeof value.source === "object" &&
+        typeof value.handoffId === "string" &&
+        value.handoffId.length > 0 &&
+        typeof value.observedAt === "string" &&
+        value.observedAt.length > 0 &&
+        (value.supersedesId === undefined || typeof value.supersedesId === "string")
+    case "OBSERVE":
+    case "VALIDATE":
+      return typeof value.handoffId === "string" && value.handoffId.length > 0
+    case "ADMIT": {
+      const context = value.context
+      if (context === null || typeof context !== "object") return false
+      const ctx = context as Record<string, unknown>
+      return typeof ctx.operationId === "string" &&
+        ctx.operationId.length > 0 &&
+        ["VALID", "INVALID", "UNKNOWN"].includes(String(ctx.authorityStatus)) &&
+        ["COMMIT", "NOT_COMMIT", "UNKNOWN"].includes(String(ctx.commitOutcome))
+    }
+    case "RECONCILE":
+      return typeof value.operationId === "string" &&
+        value.operationId.length > 0 &&
+        ["COMMITTED", "NOT_COMMITTED", "UNKNOWN"].includes(String(value.authoritativeDecision))
+    case "BIND_SEED":
+      return typeof value.seedId === "string" && value.seedId.length > 0
+    case "EVALUATE_ROUTE":
+      return true
+    case "COMMIT_ROUTE":
+      return typeof value.routeId === "string" && value.routeId.length > 0
+    case "REFUSE_SOURCE_MUTATION":
+      return true
+    default:
+      return false
+  }
+}
+
 function parseCommandInput(
   raw: PostInstallReentryCommandInput,
 ): PostInstallReentryResult | PostInstallReentryCommandInput {
@@ -386,6 +427,9 @@ function parseCommandInput(
   ])
   if (!allowed.has(raw.command.type)) {
     return fail("REENTRY-REFUSE-COMMAND", "Command is outside qualified re-entry dispatch set")
+  }
+  if (!validCommandShape(raw.command)) {
+    return fail("REENTRY-INVALID-COMMAND", "Ordinary command input is malformed")
   }
 
   const forbidden = findForbiddenKey(raw)
