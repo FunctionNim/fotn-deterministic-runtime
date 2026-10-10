@@ -24,6 +24,7 @@ import {
   preparePersistedRestart,
   type RestartCandidatePacket,
 } from "../../src/pyramid/posix-secret-engine-persisted-restart-reload.js"
+import * as installGateModule from "../../src/pyramid/posix-secret-engine-restart-install-gate.js"
 import {
   RESTART_INSTALL_SCHEMA_VERSION,
   SyntheticRestartInstallTarget,
@@ -196,6 +197,23 @@ describe("POSITION IX → Secret Engine post-install continuation / runtime re-e
     expect(target.snapshot()).toEqual(before)
   })
 
+  it("RC-RE08 exposes no standalone target mutation bridge", () => {
+    expect(
+      "__dispatchSyntheticRestartTargetCommandForReentry" in installGateModule,
+    ).toBe(false)
+  })
+
+  it("RC-RE06 fresh promoted target cannot mutate without committed install root and session", () => {
+    const target = new SyntheticRestartInstallTarget("TEST-RUNTIME-REENTRY-FRESH-NO-INSTALL")
+    const before = target.snapshot()
+
+    const opened = openSession(target, "FRESH-NO-INSTALL")
+    expect(opened.code).toBe("REENTRY-HOLD-INSTALL-ROOT")
+    expect(opened.effect).toBe("NONE")
+    expect(opened.sessionHandle).toBeUndefined()
+    expect(target.snapshot()).toEqual(before)
+  })
+
   it("RER-004 rejects forged detached target identity", async () => {
     const candidate = await promotedCandidate({ label: "FORGED-TARGET" })
     const target = await installedTarget(candidate, "TEST-RUNTIME-REENTRY-FORGED")
@@ -254,6 +272,15 @@ describe("POSITION IX → Secret Engine post-install continuation / runtime re-e
     expect(second.target?.currentState.state).toBe("HOLD")
     expect(second.receipt?.parentReceiptHash).toBe(first.receipt?.receiptHash)
     expect(second.session?.continuationReceipts).toHaveLength(2)
+    expect(second.receipt?.rootInstallOperationId).toBe(
+      opened.session?.rootInstallReceipt.operationId,
+    )
+    expect(second.receipt?.candidatePacketHash).toBe(
+      opened.session?.rootInstallReceipt.candidatePacketHash,
+    )
+    expect(target.snapshot().currentStateFingerprint).toBe(
+      second.receipt?.afterFingerprint,
+    )
 
     const { receiptHash, ...body } = second.receipt!
     expect(postInstallReentryReceiptHash(body)).toBe(receiptHash)
