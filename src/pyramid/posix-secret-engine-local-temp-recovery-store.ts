@@ -60,6 +60,7 @@ export interface RecoveryStoreConfig {
   readonly root: string
   readonly expectedTestTempParent: string
   readonly recoveryPolicy: RecoveryVerificationPolicy
+  readonly stagingIdentityFactory?: () => string
 }
 
 export interface RecoveryStoreResult {
@@ -90,6 +91,11 @@ interface ScannedStore {
 const FINAL_RECORD_PATTERN = /^(\d{12})-([0-9a-f]{64})\.json$/
 const STAGING_PREFIX = ".posix-se-store-"
 const STAGING_SUFFIX = ".tmp"
+const CLAIM_PREFIX = ".posix-se-store-next-"
+const CLAIM_SUFFIX = ".claim"
+const CLAIM_RETRY_LIMIT = 100
+const CLAIM_RETRY_DELAY_MS = 2
+const STAGING_RETRY_LIMIT = 8
 
 function result(
   code: RecoveryStoreCode,
@@ -113,6 +119,58 @@ function sameHead(
   right: RecoveryStoreObservedHead | undefined,
 ): boolean {
   return left?.sequence === right?.sequence && left?.envelopeHash === right?.envelopeHash
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, milliseconds))
+}
+
+function nextSequenceClaimName(sequence: number): string {
+  return `${CLAIM_PREFIX}${String(sequence).padStart(12, "0")}${CLAIM_SUFFIX}`
+}
+
+async function acquireNextSequenceClaim(
+  root: string,
+  sequence: number,
+): Promise<{ path: string } | RecoveryStoreResult> {
+  const claimPath = join(root, nextSequenceClaimName(sequence))
+  for (let attempt = 0; attempt < CLAIM_RETRY_LIMIT; attempt += 1) {
+    try {
+      const handle = await open(claimPath, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, 0o600)
+      await handle.writeFile(String(process.pid), "utf8")
+      await handle.sync()
+      await handle.close()
+      return { path: claimPath }
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      if (code !== "EEXIST") {
+        return result("STORE-INVALID-READBACK", "NONE", "Unable to acquire exclusive next-sequence claim")
+      }
+      await wait(CLAIM_RETRY_DELAY_MS)
+    }
+  }
+  return result("STORE-CONFLICT-HEAD-CHANGED", "NONE", "Next-sequence claim remained busy beyond bounded retry window")
+}
+
+async function openUniqueStagingFile(
+  root: string,
+  storeId: string,
+  identityFactory: () => string,
+): Promise<{ path: string; handle: Awaited<ReturnType<typeof open>> } | RecoveryStoreResult> {
+  for (let attempt = 0; attempt < STAGING_RETRY_LIMIT; attempt += 1) {
+    const stagingName = `${STAGING_PREFIX}${storeId}-${identityFactory()}${STAGING_SUFFIX}`
+    const stagingPath = join(root, stagingName)
+    try {
+      const handle = await open(stagingPath, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, 0o600)
+      return { path: stagingPath, handle }
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      if (code !== "EEXIST") {
+        return result("STORE-INVALID-READBACK", "NONE", "Unable to create exclusive recovery staging file")
+      }
+    }
+  }
+  return result("STORE-INVALID-READBACK", "NONE", "Recovery staging identity collisions exceeded bounded retry limit")
 }
 
 function mapRecoveryFailure(code: string, detail?: string): RecoveryStoreResult {
@@ -349,89 +407,101 @@ export class LocalTempRecoveryStore {
       return result("STORE-INVALID-RECORD", "NONE", "Candidate envelope cannot be canonically serialized")
     }
 
-    const scanned = await scanStore(this.#config)
-    if ("code" in scanned) return scanned
+    const claim = await acquireNextSequenceClaim(root, envelope.sequence)
+    if ("code" in claim) return claim
 
-    const exact = scanned.records.find(record =>
-      record.envelope.sequence === envelope.sequence &&
-      record.envelope.envelopeHash === envelope.envelopeHash,
-    )
-    if (exact) {
-      if (exact.canonicalBytes === canonicalBytes && exact.envelope.envelopeId === envelope.envelopeId) {
-        return result("STORE-OK-ALREADY-STORED", "NONE", "Exact canonical recovery record already exists", {
-          observedHead: scanned.observedHead,
-        })
-      }
-      return result("STORE-CONFLICT-SLOT", "NONE", "Sequence/hash slot exists with different material")
-    }
-
-    const identityConflict = scanned.records.find(record =>
-      record.envelope.envelopeId === envelope.envelopeId &&
-      record.envelope.envelopeHash !== envelope.envelopeHash,
-    )
-    if (identityConflict) {
-      return result("STORE-CONFLICT-SLOT", "NONE", "Envelope identity already exists with different content")
-    }
-
-    if (scanned.records.length === 0) {
-      if (envelope.sequence !== 0 || envelope.previousEnvelopeHash !== null) {
-        return result("STORE-CONFLICT-SEQUENCE", "NONE", "Empty store accepts only a genesis envelope")
-      }
-    } else {
-      if (!options.expectedObservedHead || !sameHead(options.expectedObservedHead, scanned.observedHead)) {
-        return result("STORE-CONFLICT-HEAD-CHANGED", "NONE", "Caller observed-head precondition does not match current store head", {
-          observedHead: scanned.observedHead,
-        })
-      }
-      const head = scanned.records[scanned.records.length - 1].envelope
-      if (envelope.sequence !== head.sequence + 1) {
-        return result("STORE-CONFLICT-SEQUENCE", "NONE", "Descendant sequence must immediately follow current head")
-      }
-      if (envelope.previousEnvelopeHash !== head.envelopeHash) {
-        return result("STORE-CONFLICT-PREV-HASH", "NONE", "Descendant does not reference current head")
-      }
-    }
-
-    const finalName = finalRecordName(envelope)
-    const finalPath = join(root, finalName)
-    const stagingName = `${STAGING_PREFIX}${this.#config.storeId}-${randomUUID()}${STAGING_SUFFIX}`
-    const stagingPath = join(root, stagingName)
-
-    let handle
     try {
-      handle = await open(stagingPath, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, 0o600)
-      await handle.writeFile(canonicalBytes, "utf8")
-      await handle.sync()
-      await handle.close()
-      handle = undefined
+      const scanned = await scanStore(this.#config)
+      if ("code" in scanned) return scanned
 
-      try {
-        await link(stagingPath, finalPath)
-      } catch (error) {
-        const code = (error as NodeJS.ErrnoException).code
-        await unlink(stagingPath).catch(() => undefined)
-        if (code === "EEXIST") {
-          return reconcileExistingFinal(root, envelope, canonicalBytes, this.#config.recoveryPolicy)
+      const exact = scanned.records.find(record =>
+        record.envelope.sequence === envelope.sequence &&
+        record.envelope.envelopeHash === envelope.envelopeHash,
+      )
+      if (exact) {
+        if (exact.canonicalBytes === canonicalBytes && exact.envelope.envelopeId === envelope.envelopeId) {
+          return result("STORE-OK-ALREADY-STORED", "NONE", "Exact canonical recovery record already exists", {
+            observedHead: scanned.observedHead,
+          })
         }
-        return result("STORE-INVALID-READBACK", "NONE", "Unable to finalize immutable recovery record")
+        return result("STORE-CONFLICT-SLOT", "NONE", "Sequence/hash slot exists with different material")
       }
 
-      await unlink(stagingPath)
-
-      const readback = await readFinalRecord(root, finalName, this.#config.recoveryPolicy)
-      if ("code" in readback) {
-        return result("STORE-INVALID-READBACK", "NONE", readback.detail ?? readback.code)
-      }
-      if (readback.canonicalBytes !== canonicalBytes) {
-        return result("STORE-INVALID-READBACK", "NONE", "Final readback bytes differ from canonical candidate")
+      const identityConflict = scanned.records.find(record =>
+        record.envelope.envelopeId === envelope.envelopeId &&
+        record.envelope.envelopeHash !== envelope.envelopeHash,
+      )
+      if (identityConflict) {
+        return result("STORE-CONFLICT-SLOT", "NONE", "Envelope identity already exists with different content")
       }
 
-      return result("STORE-OK-STORED", "STORE_LOCAL", "Canonical recovery record finalized and readback verified", {
-        observedHead: { sequence: envelope.sequence, envelopeHash: envelope.envelopeHash },
-      })
-    } catch {
-      if (handle) await handle.close().catch(() => undefined)
-      return result("STORE-INVALID-READBACK", "NONE", "Recovery record staging/finalization failed")
+      if (scanned.records.length === 0) {
+        if (envelope.sequence !== 0 || envelope.previousEnvelopeHash !== null) {
+          return result("STORE-CONFLICT-SEQUENCE", "NONE", "Empty store accepts only a genesis envelope")
+        }
+      } else {
+        if (!options.expectedObservedHead || !sameHead(options.expectedObservedHead, scanned.observedHead)) {
+          return result("STORE-CONFLICT-HEAD-CHANGED", "NONE", "Caller observed-head precondition does not match current store head", {
+            observedHead: scanned.observedHead,
+          })
+        }
+        const head = scanned.records[scanned.records.length - 1].envelope
+        if (envelope.sequence !== head.sequence + 1) {
+          return result("STORE-CONFLICT-SEQUENCE", "NONE", "Descendant sequence must immediately follow current head")
+        }
+        if (envelope.previousEnvelopeHash !== head.envelopeHash) {
+          return result("STORE-CONFLICT-PREV-HASH", "NONE", "Descendant does not reference current head")
+        }
+      }
+
+      const finalName = finalRecordName(envelope)
+      const finalPath = join(root, finalName)
+      const staging = await openUniqueStagingFile(
+        root,
+        this.#config.storeId,
+        this.#config.stagingIdentityFactory ?? randomUUID,
+      )
+      if ("code" in staging) return staging
+
+      let handle: Awaited<ReturnType<typeof open>> | undefined = staging.handle
+      const stagingPath = staging.path
+      try {
+        await handle.writeFile(canonicalBytes, "utf8")
+        await handle.sync()
+        await handle.close()
+        handle = undefined
+
+        try {
+          await link(stagingPath, finalPath)
+        } catch (error) {
+          const code = (error as NodeJS.ErrnoException).code
+          await unlink(stagingPath).catch(() => undefined)
+          if (code === "EEXIST") {
+            return reconcileExistingFinal(root, envelope, canonicalBytes, this.#config.recoveryPolicy)
+          }
+          return result("STORE-INVALID-READBACK", "NONE", "Unable to finalize immutable recovery record")
+        }
+
+        await unlink(stagingPath)
+
+        const readback = await readFinalRecord(root, finalName, this.#config.recoveryPolicy)
+        if ("code" in readback) {
+          return result("STORE-INVALID-READBACK", "NONE", readback.detail ?? readback.code)
+        }
+        if (readback.canonicalBytes !== canonicalBytes) {
+          return result("STORE-INVALID-READBACK", "NONE", "Final readback bytes differ from canonical candidate")
+        }
+
+        return result("STORE-OK-STORED", "STORE_LOCAL", "Canonical recovery record finalized and readback verified", {
+          observedHead: { sequence: envelope.sequence, envelopeHash: envelope.envelopeHash },
+        })
+      } catch {
+        if (handle) await handle.close().catch(() => undefined)
+        await unlink(stagingPath).catch(() => undefined)
+        return result("STORE-INVALID-READBACK", "NONE", "Recovery record staging/finalization failed")
+      }
+    } finally {
+      await unlink(claim.path).catch(() => undefined)
     }
   }
 
