@@ -33,6 +33,7 @@ import {
 import {
   POSTINSTALL_REENTRY_SCHEMA_VERSION,
   SyntheticPostInstallReentrySession,
+  __registerPostInstallReentryTargetDispatcher,
   dispatchPostInstallReentryCommand,
   postInstallReentryReceiptHash,
 } from "../../src/pyramid/posix-secret-engine-postinstall-reentry.js"
@@ -201,6 +202,13 @@ describe("POSITION IX → Secret Engine post-install continuation / runtime re-e
     expect(
       "__dispatchSyntheticRestartTargetCommandForReentry" in installGateModule,
     ).toBe(false)
+  })
+
+
+  it("RC-RE03 internal dispatcher registration is sealed after module initialization", () => {
+    expect(() =>
+      __registerPostInstallReentryTargetDispatcher((() => undefined) as never),
+    ).toThrow("already registered")
   })
 
   it("RC-RE06 fresh promoted target cannot mutate without committed install root and session", () => {
