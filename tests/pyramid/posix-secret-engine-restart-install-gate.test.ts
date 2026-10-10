@@ -143,9 +143,19 @@ describe("POSITION IX → Secret Engine restart candidate installation gate 001"
         fixtureId: `TEST-FIXTURE-INSTALL-${counter}`,
       },
     )
-    const append = await store.append(envelope)
+    const candidateRoot = join(parent, `store-${counter}`)
+    await mkdir(candidateRoot)
+    const candidateStore = new LocalTempRecoveryStore({
+      storeSchemaVersion: RECOVERY_STORE_SCHEMA_VERSION,
+      storeId: `TEST-STORE-INSTALL-${counter}`,
+      chainId: `TEST-CHAIN-INSTALL-${counter}`,
+      root: candidateRoot,
+      expectedTestTempParent: parent,
+      recoveryPolicy: policy,
+    })
+    const append = await candidateStore.append(envelope)
     expect(append.code).toBe("STORE-OK-STORED")
-    const result = await preparePersistedRestart(store, {
+    const result = await preparePersistedRestart(candidateStore, {
       restartSessionId: `TEST-RESTART-INSTALL-${counter}`,
       expectedCheckpoint: {
         sequence: envelope.sequence,
