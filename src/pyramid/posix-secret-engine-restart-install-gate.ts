@@ -429,6 +429,19 @@ function hasCommittedInstall(record: TargetRecord): boolean {
   return record.installReceipts.some(receipt => receipt.decision === "COMMITTED")
 }
 
+function latestUnresolvedUnknownReceipt(
+  record: TargetRecord,
+): RestartInstallReceipt | undefined {
+  const seenOperationIds = new Set<string>()
+  for (let index = record.installReceipts.length - 1; index >= 0; index -= 1) {
+    const receipt = record.installReceipts[index]
+    if (seenOperationIds.has(receipt.operationId)) continue
+    seenOperationIds.add(receipt.operationId)
+    if (receipt.decision === "UNKNOWN") return receipt
+  }
+  return undefined
+}
+
 function makeReceipt(
   record: TargetRecord,
   input: ParsedInstallInput,
@@ -540,6 +553,17 @@ export function installRestartCandidate(
       record,
       prior,
       "A NOT_COMMITTED operationId is historical and must not be reused",
+    )
+  }
+
+  const unresolvedUnknown = latestUnresolvedUnknownReceipt(record)
+  if (unresolvedUnknown) {
+    return resultWithTarget(
+      "INSTALL-HOLD-OPERATION-UNKNOWN",
+      "NONE",
+      record,
+      unresolvedUnknown,
+      "Target has an unresolved install outcome; explicit reconcile is required before any new install operation",
     )
   }
 
