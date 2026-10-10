@@ -6,7 +6,8 @@ import {
 } from "./posix-secret-engine-recovery-envelope.js"
 import {
   RECOVERY_STORE_SCHEMA_VERSION,
-  type LocalTempRecoveryStore,
+  LocalTempRecoveryStore,
+  isPromotedLocalTempRecoveryStore,
   type RecoveryStoreCode,
   type RecoveryStoreObservedHead,
   type RecoveryStoreResult,
@@ -80,7 +81,6 @@ export interface PersistedRestartResult {
   readonly detail?: string
 }
 
-export type PersistedRestartStoreReader = Pick<LocalTempRecoveryStore, "loadVerifiedChain">
 
 const REQUIRED_BOUNDARIES = [
   "NON_PRODUCTION_ONLY",
@@ -327,7 +327,9 @@ function createPacket(
   })
 }
 
-export function verifyRestartCandidatePacket(packet: RestartCandidatePacket): PersistedRestartResult {
+function validateRestartCandidatePacketIntegrity(
+  packet: RestartCandidatePacket,
+): PersistedRestartResult | undefined {
   if (packet.schemaVersion !== PERSISTED_RESTART_SCHEMA_VERSION ||
       packet.canonicalVersion !== PERSISTED_RESTART_PACKET_CANONICAL_VERSION) {
     return fail("RESTART-HOLD-UNSUPPORTED-SCHEMA", "Restart packet schema/canonical version is unsupported")
@@ -345,15 +347,22 @@ export function verifyRestartCandidatePacket(packet: RestartCandidatePacket): Pe
   if (!Object.isFrozen(packet) || !Object.isFrozen(packet.stateSnapshot) || !Object.isFrozen(packet.runtimeSignature)) {
     return fail("RESTART-INVALID-PACKET", "Restart packet must be deeply immutable")
   }
-  return { code: "RESTART-READY-CANDIDATE", effect: "NONE", packet }
+  return undefined
 }
 
 export async function preparePersistedRestart(
-  store: PersistedRestartStoreReader,
+  store: LocalTempRecoveryStore,
   rawInput: unknown,
 ): Promise<PersistedRestartResult> {
   const parsed = parseInput(rawInput)
   if ("code" in parsed) return parsed
+
+  if (!isPromotedLocalTempRecoveryStore(store)) {
+    return fail(
+      "RESTART-INVALID-STORE-EVIDENCE",
+      "Persisted restart requires an actual promoted LocalTempRecoveryStore instance",
+    )
+  }
 
   let storeResult: RecoveryStoreResult
   try {
@@ -383,8 +392,8 @@ export async function preparePersistedRestart(
   }
 
   const packet = createPacket(parsed, candidate)
-  const verifiedPacket = verifyRestartCandidatePacket(packet)
-  if (verifiedPacket.code !== "RESTART-READY-CANDIDATE") return verifiedPacket
+  const packetIntegrityFailure = validateRestartCandidatePacketIntegrity(packet)
+  if (packetIntegrityFailure) return packetIntegrityFailure
 
   return {
     code: "RESTART-READY-CANDIDATE",
