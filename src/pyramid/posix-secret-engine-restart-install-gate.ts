@@ -16,6 +16,7 @@ import {
   type PositionIXSource,
 } from "./posix-secret-engine-interface.js"
 import { recoveryCanonicalJson } from "./posix-secret-engine-recovery-envelope.js"
+import { __registerPostInstallReentryTargetDispatcher } from "./posix-secret-engine-postinstall-reentry.js"
 import {
   PERSISTED_RESTART_PACKET_CANONICAL_VERSION,
   PERSISTED_RESTART_SCHEMA_VERSION,
@@ -869,7 +870,7 @@ function dispatchOrdinaryInterfaceCommand(
   }
 }
 
-export function __dispatchSyntheticRestartTargetCommandForReentry(
+function dispatchSyntheticRestartTargetCommandForReentry(
   target: SyntheticRestartInstallTarget,
   expectedCurrentStateFingerprint: string,
   command: RestartReentryOrdinaryCommand,
@@ -898,3 +899,7 @@ export function __dispatchSyntheticRestartTargetCommandForReentry(
     target: targetSnapshot(record),
   }
 }
+
+__registerPostInstallReentryTargetDispatcher(
+  dispatchSyntheticRestartTargetCommandForReentry,
+)
