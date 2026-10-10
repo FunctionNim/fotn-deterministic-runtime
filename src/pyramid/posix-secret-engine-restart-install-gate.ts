@@ -1,7 +1,19 @@
 import { createHash } from "node:crypto"
 import {
+  admit,
+  bindSeed,
+  commitRoute,
   createInterfaceState,
+  emitHandoff,
+  evaluateRoute,
+  observe,
+  reconcile,
+  refuseSourceMutation,
+  validate,
+  type AdmissionContext,
   type InterfaceRuntimeState,
+  type OperationResult,
+  type PositionIXSource,
 } from "./posix-secret-engine-interface.js"
 import { recoveryCanonicalJson } from "./posix-secret-engine-recovery-envelope.js"
 import {
@@ -788,4 +800,93 @@ export function reconcileRestartInstall(
   record.installReceipts.push(receipt)
   record.pendingCandidates.delete(operationId)
   return resultWithTarget("INSTALL-OK-INSTALLED", "ENGINE_LOCAL", record, receipt)
+}
+
+
+export type RestartReentryOrdinaryCommand =
+  | {
+      readonly type: "EMIT_HANDOFF"
+      readonly source: PositionIXSource
+      readonly handoffId: string
+      readonly observedAt: string
+      readonly supersedesId?: string
+    }
+  | { readonly type: "OBSERVE"; readonly handoffId: string }
+  | { readonly type: "VALIDATE"; readonly handoffId: string }
+  | { readonly type: "ADMIT"; readonly context: AdmissionContext }
+  | {
+      readonly type: "RECONCILE"
+      readonly operationId: string
+      readonly authoritativeDecision: "COMMITTED" | "NOT_COMMITTED" | "UNKNOWN"
+    }
+  | { readonly type: "BIND_SEED"; readonly seedId: string }
+  | { readonly type: "EVALUATE_ROUTE" }
+  | { readonly type: "COMMIT_ROUTE"; readonly routeId: string }
+  | { readonly type: "REFUSE_SOURCE_MUTATION" }
+
+export interface RestartReentryDispatchResult {
+  readonly operation: OperationResult
+  readonly target: RestartInstallTargetSnapshot
+}
+
+function dispatchOrdinaryInterfaceCommand(
+  state: InterfaceRuntimeState,
+  command: RestartReentryOrdinaryCommand,
+): OperationResult {
+  switch (command.type) {
+    case "EMIT_HANDOFF":
+      return emitHandoff(
+        state,
+        command.source,
+        command.handoffId,
+        command.observedAt,
+        command.supersedesId,
+      )
+    case "OBSERVE":
+      return observe(state, command.handoffId)
+    case "VALIDATE":
+      return validate(state, command.handoffId)
+    case "ADMIT":
+      return admit(state, command.context)
+    case "RECONCILE":
+      return reconcile(state, command.operationId, command.authoritativeDecision)
+    case "BIND_SEED":
+      return bindSeed(state, command.seedId)
+    case "EVALUATE_ROUTE":
+      return evaluateRoute(state)
+    case "COMMIT_ROUTE":
+      return commitRoute(state, command.routeId)
+    case "REFUSE_SOURCE_MUTATION":
+      return refuseSourceMutation(state)
+  }
+}
+
+export function __dispatchSyntheticRestartTargetCommandForReentry(
+  target: SyntheticRestartInstallTarget,
+  expectedCurrentStateFingerprint: string,
+  command: RestartReentryOrdinaryCommand,
+): RestartReentryDispatchResult | undefined {
+  const record = getTargetRecord(target)
+  if (!record) return undefined
+  const targetFailure = validateTargetRecord(record)
+  if (targetFailure) return undefined
+  if (latestUnresolvedUnknownReceipt(record)) return undefined
+
+  const before = restartInstallStateFingerprint(record.currentState)
+  if (before !== record.currentStateFingerprint ||
+      before !== expectedCurrentStateFingerprint) {
+    return undefined
+  }
+
+  const operation = dispatchOrdinaryInterfaceCommand(
+    structuredClone(record.currentState),
+    structuredClone(command),
+  )
+  record.currentState = structuredClone(operation.state)
+  record.currentStateFingerprint = restartInstallStateFingerprint(record.currentState)
+
+  return {
+    operation: cloneFrozen(operation),
+    target: targetSnapshot(record),
+  }
 }
