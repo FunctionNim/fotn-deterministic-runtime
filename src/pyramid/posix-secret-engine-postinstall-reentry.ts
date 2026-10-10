@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto"
 import {
-  __dispatchSyntheticRestartTargetCommandForReentry,
   isPromotedSyntheticRestartInstallTarget,
   restartInstallStateFingerprint,
   SyntheticRestartInstallTarget,
   type RestartInstallReceipt,
   type RestartInstallTargetSnapshot,
+  type RestartReentryDispatchResult,
   type RestartReentryOrdinaryCommand,
 } from "./posix-secret-engine-restart-install-gate.js"
 import { recoveryCanonicalJson } from "./posix-secret-engine-recovery-envelope.js"
@@ -13,6 +13,24 @@ import type { InterfaceRuntimeState, MachineCode } from "./posix-secret-engine-i
 
 export const POSTINSTALL_REENTRY_SCHEMA_VERSION =
   "POSIX-SE-POSTINSTALL-REENTRY-1.0" as const
+
+
+type InternalTargetDispatcher = (
+  target: SyntheticRestartInstallTarget,
+  expectedCurrentStateFingerprint: string,
+  command: RestartReentryOrdinaryCommand,
+) => RestartReentryDispatchResult | undefined
+
+let INTERNAL_TARGET_DISPATCHER: InternalTargetDispatcher | undefined
+
+export function __registerPostInstallReentryTargetDispatcher(
+  dispatcher: InternalTargetDispatcher,
+): void {
+  if (INTERNAL_TARGET_DISPATCHER) {
+    throw new Error("Post-install re-entry target dispatcher is already registered")
+  }
+  INTERNAL_TARGET_DISPATCHER = dispatcher
+}
 
 export type PostInstallReentryCode =
   | "REENTRY-OK-APPLIED"
@@ -502,7 +520,11 @@ export function dispatchPostInstallReentryCommand(
     }
   }
 
-  const dispatched = __dispatchSyntheticRestartTargetCommandForReentry(
+  if (!INTERNAL_TARGET_DISPATCHER) {
+    return fail("REENTRY-CONFLICT-ANCESTRY", "Internal re-entry dispatcher is unavailable")
+  }
+
+  const dispatched = INTERNAL_TARGET_DISPATCHER(
     record.target,
     parsed.expectedCurrentStateFingerprint,
     parsed.command,
