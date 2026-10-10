@@ -421,6 +421,44 @@ describe("POSITION IX → Secret Engine persisted restart/reload integration con
     expect(calls).toBe(0)
   })
 
+  it("RC2-PR04 rejects global prototype verifier replacement and restores it safely", async () => {
+    const envelope = makeEnvelope("TEST-RECOVERY-RESTART-PROTOTYPE-FORGERY")
+    const store = makeStore()
+    const original = LocalTempRecoveryStore.prototype.loadVerifiedChain
+    let forgedCalls = 0
+
+    try {
+      LocalTempRecoveryStore.prototype.loadVerifiedChain = async function () {
+        forgedCalls += 1
+        return {
+          code: "STORE-VALID-CANDIDATE",
+          effect: "NONE",
+          observedHead: {
+            sequence: envelope.sequence,
+            envelopeHash: envelope.envelopeHash,
+          },
+          candidate: {
+            envelopeId: envelope.envelopeId,
+            sequence: envelope.sequence,
+            runtimeArtifactRef: envelope.runtimeArtifactRef,
+            stateSnapshot: envelope.stateSnapshot,
+            runtimeSignature: envelope.runtimeSignature,
+            ancestry: envelope.ancestry,
+          },
+        }
+      }
+
+      const outcome = await preparePersistedRestart(store, restartInput(envelope))
+      expect(outcome.code).toBe("RESTART-INVALID-STORE-EVIDENCE")
+      expect(outcome.packet).toBeUndefined()
+      expect(forgedCalls).toBe(0)
+    } finally {
+      LocalTempRecoveryStore.prototype.loadVerifiedChain = original
+    }
+
+    expect(LocalTempRecoveryStore.prototype.loadVerifiedChain).toBe(original)
+  })
+
   it("PRR-010/013 packet ancestry carries source lineage, restart attempt, and checkpoint identity", async () => {
     const store = makeStore()
     const envelope = makeEnvelope("TEST-RECOVERY-RESTART-ANCESTRY", {
