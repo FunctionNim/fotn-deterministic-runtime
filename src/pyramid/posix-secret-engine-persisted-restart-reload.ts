@@ -89,6 +89,8 @@ const REQUIRED_BOUNDARIES = [
   "CHECKPOINT_REQUIRED",
 ] as const
 
+const PROMOTED_RESTART_CANDIDATES = new WeakSet<object>()
+
 const PINNED_PROMOTED_LOAD_VERIFIED_CHAIN =
   LocalTempRecoveryStore.prototype.loadVerifiedChain
 
@@ -324,10 +326,20 @@ function createPacket(
   candidate: VerifiedRecoveryCandidate,
 ): RestartCandidatePacket {
   const body = packetBody(input, candidate)
-  return deepFreeze({
+  const packet = deepFreeze({
     ...body,
     packetHash: persistedRestartPacketHash(body),
   })
+  PROMOTED_RESTART_CANDIDATES.add(packet)
+  return packet
+}
+
+export function isPromotedRestartCandidatePacket(
+  value: unknown,
+): value is RestartCandidatePacket {
+  return typeof value === "object" &&
+    value !== null &&
+    PROMOTED_RESTART_CANDIDATES.has(value as object)
 }
 
 function validateRestartCandidatePacketIntegrity(
