@@ -170,7 +170,10 @@ describe("POSITION IX → Secret Engine post-install continuation / runtime re-e
     return target
   }
 
-  function openSession(target: SyntheticRestartInstallTarget, suffix = "001") {
+  function openSession(
+    target: SyntheticRestartInstallTarget,
+    suffix: string,
+  ) {
     return SyntheticPostInstallReentrySession.open(target, {
       schemaVersion: POSTINSTALL_REENTRY_SCHEMA_VERSION,
       sessionId: `TEST-REENTRY-SESSION-${suffix}`,
@@ -178,33 +181,32 @@ describe("POSITION IX → Secret Engine post-install continuation / runtime re-e
     })
   }
 
-  it("RER-004..010 opens only from a committed promoted install root without processing commands", async () => {
+  it("RER-004..010 opens only from committed promoted install root and performs no command", async () => {
     const candidate = await promotedCandidate({ label: "OPEN" })
     const target = await installedTarget(candidate)
     const before = target.snapshot()
-    const opened = openSession(target)
+    const opened = openSession(target, "OPEN")
 
     expect(opened.code).toBe("REENTRY-OK-APPLIED")
     expect(opened.effect).toBe("NONE")
+    expect(opened.sessionHandle).toBeInstanceOf(SyntheticPostInstallReentrySession)
     expect(opened.session?.openingFingerprint).toBe(before.currentStateFingerprint)
     expect(opened.session?.rootInstallReceipt.decision).toBe("COMMITTED")
     expect(opened.session?.continuationReceipts).toHaveLength(0)
     expect(target.snapshot()).toEqual(before)
   })
 
-  it("RER-004 rejects a forged detached target even with a plausible snapshot", async () => {
+  it("RER-004 rejects forged detached target identity", async () => {
     const candidate = await promotedCandidate({ label: "FORGED-TARGET" })
     const target = await installedTarget(candidate, "TEST-RUNTIME-REENTRY-FORGED")
-    const forged = {
-      snapshot: () => target.snapshot(),
-    } as unknown as SyntheticRestartInstallTarget
+    const forged = { snapshot: () => target.snapshot() } as unknown as SyntheticRestartInstallTarget
 
     const opened = openSession(forged, "FORGED")
     expect(opened.code).toBe("REENTRY-INVALID-TARGET")
     expect(opened.effect).toBe("NONE")
   })
 
-  it("RER-007 holds session open while install outcome is unresolved UNKNOWN", async () => {
+  it("RER-007 holds opening while latest install outcome is UNKNOWN", async () => {
     const candidate = await promotedCandidate({ label: "INSTALL-UNKNOWN" })
     const target = new SyntheticRestartInstallTarget("TEST-RUNTIME-REENTRY-INSTALL-UNKNOWN")
     const result = installRestartCandidate(target, {
@@ -219,34 +221,72 @@ describe("POSITION IX → Secret Engine post-install continuation / runtime re-e
       recordedAt: "2026-10-10T10:12:30Z",
     })
     expect(result.code).toBe("INSTALL-HOLD-OPERATION-UNKNOWN")
-
-    const opened = openSession(target, "INSTALL-UNKNOWN")
-    expect(opened.code).toBe("REENTRY-HOLD-INSTALL-UNKNOWN")
+    expect(openSession(target, "INSTALL-UNKNOWN").code).toBe("REENTRY-HOLD-INSTALL-UNKNOWN")
   })
 
-  it("RER-008..020 dispatches an explicit ordinary command and chains immutable receipt ancestry", async () => {
+  it("RER-014..020 dispatches exact ordinary functions and chains immutable receipts", async () => {
     const candidate = await promotedCandidate({ label: "CHAIN" })
     const target = await installedTarget(candidate, "TEST-RUNTIME-REENTRY-CHAIN")
     const opened = openSession(target, "CHAIN")
-    const session = opened.session
-    expect(session).toBeDefined()
+    const session = opened.sessionHandle!
+    const handoffId = target.snapshot().currentState.activeHandoffId!
+    const fingerprint = target.snapshot().currentStateFingerprint
 
-    const reentry = (opened as typeof opened & { session: NonNullable<typeof opened.session> })
-    const sessionObject = [...([] as SyntheticPostInstallReentrySession[])]
-    void sessionObject
+    const first = dispatchPostInstallReentryCommand(session, {
+      commandId: "TEST-REENTRY-CMD-CHAIN-1",
+      expectedCurrentStateFingerprint: fingerprint,
+      command: { type: "OBSERVE", handoffId },
+      recordedAt: "2026-10-10T10:14:00Z",
+    })
+    expect(first.code).toBe("REENTRY-OK-APPLIED")
+    expect(first.receipt?.machineCode).toBe("OK-DUPLICATE")
+    expect(first.effect).toBe("NONE")
+    expect(Object.isFrozen(first.receipt)).toBe(true)
 
-    const actualSession = (() => {
-      const result = SyntheticPostInstallReentrySession.open(target, {
-        sessionId: "TEST-REENTRY-SESSION-CHAIN-2",
-        openedAt: "2026-10-10T10:13:01Z",
-      })
-      expect(result.code).toBe("REENTRY-OK-APPLIED")
-      return result
-    })()
-    void actualSession
+    const second = dispatchPostInstallReentryCommand(session, {
+      commandId: "TEST-REENTRY-CMD-CHAIN-2",
+      expectedCurrentStateFingerprint: first.target!.currentStateFingerprint,
+      command: { type: "VALIDATE", handoffId },
+      recordedAt: "2026-10-10T10:14:01Z",
+    })
+    expect(second.code).toBe("REENTRY-OK-APPLIED")
+    expect(second.receipt?.machineCode).toBe("OK-VALID")
+    expect(second.receipt?.parentReceiptHash).toBe(first.receipt?.receiptHash)
+    expect(second.session?.continuationReceipts).toHaveLength(2)
+
+    const { receiptHash, ...body } = second.receipt!
+    expect(postInstallReentryReceiptHash(body)).toBe(receiptHash)
   })
 
-  it("RER-016 preserves installed UNKNOWN_OUTCOME until explicit reconcile", async () => {
+  it("RER-021/022 exact duplicate is idempotent and changed body conflicts", async () => {
+    const candidate = await promotedCandidate({ label: "IDEMPOTENT" })
+    const target = await installedTarget(candidate, "TEST-RUNTIME-REENTRY-IDEMPOTENT")
+    const opened = openSession(target, "IDEMPOTENT")
+    const session = opened.sessionHandle!
+    const handoffId = target.snapshot().currentState.activeHandoffId!
+    const fp = target.snapshot().currentStateFingerprint
+    const input = {
+      commandId: "TEST-REENTRY-CMD-IDEMPOTENT",
+      expectedCurrentStateFingerprint: fp,
+      command: { type: "OBSERVE" as const, handoffId },
+      recordedAt: "2026-10-10T10:15:00Z",
+    }
+
+    const first = dispatchPostInstallReentryCommand(session, input)
+    const duplicate = dispatchPostInstallReentryCommand(session, input)
+    expect(first.code).toBe("REENTRY-OK-APPLIED")
+    expect(duplicate.code).toBe("REENTRY-OK-ALREADY-APPLIED")
+    expect(duplicate.effect).toBe("NONE")
+    expect(duplicate.receipt).toEqual(first.receipt)
+
+    const conflict = dispatchPostInstallReentryCommand(session, {
+      ...input,
+      command: { type: "VALIDATE", handoffId },
+    })
+    expect(conflict.code).toBe("REENTRY-CONFLICT-COMMAND")
+  })
+
+  it("RER-016 preserves installed UNKNOWN_OUTCOME until explicit reconcile command", async () => {
     const operationId = "TEST-OP-REENTRY-CANDIDATE-UNKNOWN"
     const candidate = await promotedCandidate({
       label: "CANDIDATE-UNKNOWN",
@@ -254,25 +294,144 @@ describe("POSITION IX → Secret Engine post-install continuation / runtime re-e
     })
     expect(candidate.stateSnapshot.state).toBe("UNKNOWN_OUTCOME")
     const target = await installedTarget(candidate, "TEST-RUNTIME-REENTRY-CANDIDATE-UNKNOWN")
-
-    const opened = SyntheticPostInstallReentrySession.open(target, {
-      sessionId: "TEST-REENTRY-SESSION-CANDIDATE-UNKNOWN",
-      openedAt: "2026-10-10T10:13:30Z",
-    })
-    expect(opened.code).toBe("REENTRY-OK-APPLIED")
+    const opened = openSession(target, "CANDIDATE-UNKNOWN")
+    const session = opened.sessionHandle!
     expect(target.snapshot().currentState.state).toBe("UNKNOWN_OUTCOME")
 
-    const sessionObj = opened as unknown as { sessionObject?: SyntheticPostInstallReentrySession }
-    void sessionObj
+    const result = dispatchPostInstallReentryCommand(session, {
+      commandId: "TEST-REENTRY-CMD-RECONCILE-UNKNOWN",
+      expectedCurrentStateFingerprint: target.snapshot().currentStateFingerprint,
+      command: {
+        type: "RECONCILE",
+        operationId,
+        authoritativeDecision: "COMMITTED",
+      },
+      recordedAt: "2026-10-10T10:16:00Z",
+    })
+
+    expect(result.code).toBe("REENTRY-OK-APPLIED")
+    expect(result.receipt?.machineCode).toBe("OK-ALREADY-COMMITTED")
+    expect(result.target?.currentState.state).toBe("ADMITTED")
+    expect(
+      result.target?.currentState.admissionReceipts[operationId].decision,
+    ).toBe("COMMITTED")
   })
 
-  it("RER-015 fingerprint CAS refuses stale caller state before dispatch", async () => {
+  it("RER-009 rejects stale expected current-state fingerprint before dispatch", async () => {
     const candidate = await promotedCandidate({ label: "STALE-FP" })
     const target = await installedTarget(candidate, "TEST-RUNTIME-REENTRY-STALE-FP")
-    const opened = SyntheticPostInstallReentrySession.open(target, {
-      sessionId: "TEST-REENTRY-SESSION-STALE-FP",
-      openedAt: "2026-10-10T10:14:00Z",
+    const session = openSession(target, "STALE-FP").sessionHandle!
+    const handoffId = target.snapshot().currentState.activeHandoffId!
+
+    const result = dispatchPostInstallReentryCommand(session, {
+      commandId: "TEST-REENTRY-CMD-STALE-FP",
+      expectedCurrentStateFingerprint: "a".repeat(64),
+      command: { type: "OBSERVE", handoffId },
+      recordedAt: "2026-10-10T10:17:00Z",
     })
-    expect(opened.code).toBe("REENTRY-OK-APPLIED")
+    expect(result.code).toBe("REENTRY-CONFLICT-CURRENT-STATE")
+    expect(result.effect).toBe("NONE")
+  })
+
+  it("RER-024/025 makes old session stale after later committed install changes target", async () => {
+    const firstCandidate = await promotedCandidate({ label: "STALE-SESSION-A" })
+    const target = await installedTarget(firstCandidate, "TEST-RUNTIME-REENTRY-STALE-SESSION")
+    const session = openSession(target, "STALE-SESSION").sessionHandle!
+
+    const unknownOperation = "TEST-OP-REENTRY-STALE-SESSION-UNKNOWN"
+    const secondCandidate = await promotedCandidate({
+      label: "STALE-SESSION-B",
+      commands: commandsForUnknown(unknownOperation),
+    })
+    const install = installRestartCandidate(target, {
+      schemaVersion: RESTART_INSTALL_SCHEMA_VERSION,
+      operationId: "TEST-INSTALL-OP-REENTRY-REPLACE",
+      authorityRef: "TEST-INSTALL-AUTH-REENTRY",
+      authorityStatus: "VALID",
+      candidate: secondCandidate,
+      expectedCurrentStateFingerprint: target.snapshot().currentStateFingerprint,
+      allowedRuntimeArtifactRefs: [RUNTIME_BASELINE],
+      commitOutcome: "COMMIT",
+      recordedAt: "2026-10-10T10:17:30Z",
+    })
+    expect(install.code).toBe("INSTALL-OK-INSTALLED")
+
+    const handoffId = target.snapshot().currentState.activeHandoffId!
+    const result = dispatchPostInstallReentryCommand(session, {
+      commandId: "TEST-REENTRY-CMD-STALE-SESSION",
+      expectedCurrentStateFingerprint: target.snapshot().currentStateFingerprint,
+      command: { type: "OBSERVE", handoffId },
+      recordedAt: "2026-10-10T10:18:00Z",
+    })
+    expect(result.code).toBe("REENTRY-CONFLICT-SESSION-STALE")
+    expect(result.effect).toBe("NONE")
+  })
+
+  it("RER-011/013 refuses installPacket and historical replay attempts", async () => {
+    const candidate = await promotedCandidate({ label: "REFUSE-REPLAY" })
+    const target = await installedTarget(candidate, "TEST-RUNTIME-REENTRY-REFUSE")
+    const session = openSession(target, "REFUSE").sessionHandle!
+    const fp = target.snapshot().currentStateFingerprint
+
+    const forbidden = dispatchPostInstallReentryCommand(session, {
+      commandId: "TEST-REENTRY-CMD-INSTALL-PACKET",
+      expectedCurrentStateFingerprint: fp,
+      command: { type: "INSTALL_PACKET" } as never,
+      recordedAt: "2026-10-10T10:19:00Z",
+    })
+    expect(forbidden.code).toBe("REENTRY-REFUSE-COMMAND")
+
+    const replay = dispatchPostInstallReentryCommand(session, {
+      commandId: "TEST-REENTRY-CMD-REPLAY",
+      expectedCurrentStateFingerprint: fp,
+      command: {
+        type: "OBSERVE",
+        handoffId: target.snapshot().currentState.activeHandoffId!,
+      },
+      recordedAt: "2026-10-10T10:19:01Z",
+      replayHistory: true,
+    } as never)
+    expect(replay.code).toBe("REENTRY-REFUSE-HISTORICAL-REPLAY")
+  })
+
+  it.each([
+    ["append", true, "REENTRY-REFUSE-STORE-MUTATION"],
+    ["sourceMutation", "WRITE", "REENTRY-REFUSE-SOURCE-MUTATION"],
+    ["autoProcess", true, "REENTRY-REFUSE-AUTO-PROCESS"],
+    ["network", true, "REENTRY-REFUSE-AUTO-PROCESS"],
+    ["database", true, "REENTRY-REFUSE-AUTO-PROCESS"],
+    ["cloud", true, "REENTRY-REFUSE-AUTO-PROCESS"],
+  ])("RER-027..030 refuses forbidden field %s", async (key, value, expected) => {
+    const candidate = await promotedCandidate({ label: `FORBIDDEN-${key}` })
+    const target = await installedTarget(candidate, `TEST-RUNTIME-REENTRY-${key}`)
+    const session = openSession(target, `FORBIDDEN-${key}`).sessionHandle!
+    const result = dispatchPostInstallReentryCommand(session, {
+      commandId: `TEST-REENTRY-CMD-FORBIDDEN-${key}`,
+      expectedCurrentStateFingerprint: target.snapshot().currentStateFingerprint,
+      command: {
+        type: "OBSERVE",
+        handoffId: target.snapshot().currentState.activeHandoffId!,
+      },
+      recordedAt: "2026-10-10T10:20:00Z",
+      [key]: value,
+    } as never)
+    expect(result.code).toBe(expected)
+    expect(result.effect).toBe("NONE")
+  })
+
+  it("RER-012 rejects malformed command input without invoking interface functions", async () => {
+    const candidate = await promotedCandidate({ label: "MALFORMED" })
+    const target = await installedTarget(candidate, "TEST-RUNTIME-REENTRY-MALFORMED")
+    const session = openSession(target, "MALFORMED").sessionHandle!
+    const before = target.snapshot()
+
+    const result = dispatchPostInstallReentryCommand(session, {
+      commandId: "TEST-REENTRY-CMD-MALFORMED",
+      expectedCurrentStateFingerprint: before.currentStateFingerprint,
+      command: { type: "OBSERVE" } as never,
+      recordedAt: "2026-10-10T10:21:00Z",
+    })
+    expect(result.code).toBe("REENTRY-INVALID-COMMAND")
+    expect(target.snapshot()).toEqual(before)
   })
 })
