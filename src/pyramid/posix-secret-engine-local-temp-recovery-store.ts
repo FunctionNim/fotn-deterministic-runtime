@@ -10,6 +10,7 @@ import {
   unlink,
 } from "node:fs/promises"
 import { isAbsolute, join, relative } from "node:path"
+import { tmpdir } from "node:os"
 import {
   serializeRecoveryEnvelope,
   verifyRecoveryChain,
@@ -153,6 +154,13 @@ async function validateRoot(config: RecoveryStoreConfig): Promise<RecoveryStoreR
 
     const root = await realpath(config.root)
     const allowedParent = await realpath(config.expectedTestTempParent)
+    const systemTemp = await realpath(tmpdir())
+
+    const parentWithinSystemTemp = relative(systemTemp, allowedParent)
+    if (parentWithinSystemTemp.startsWith("..") || isAbsolute(parentWithinSystemTemp)) {
+      return result("STORE-REFUSE-PATH", "NONE", "Expected test-temp parent must itself live under the host system temporary directory")
+    }
+
     const rel = relative(allowedParent, root)
     if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {
       return result("STORE-REFUSE-PATH", "NONE", "Store root must be a child of the explicitly supplied test-temp parent")
