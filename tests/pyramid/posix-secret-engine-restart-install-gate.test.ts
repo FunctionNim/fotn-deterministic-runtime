@@ -289,6 +289,72 @@ describe("POSITION IX → Secret Engine restart candidate installation gate 001"
     expect(retry.effect).toBe("NONE")
   })
 
+
+  it("RC-IG06 fences the whole target while any latest install outcome is UNKNOWN", async () => {
+    const candidateA = await promotedCandidate({ label: "TARGET-FENCE-A" })
+    const candidateB = await promotedCandidate({ label: "TARGET-FENCE-B" })
+    const target = freshTarget("TEST-RUNTIME-TARGET-FENCE")
+    const before = target.snapshot()
+
+    const opA = installRestartCandidate(target, installInput(target, candidateA, {
+      operationId: "TEST-INSTALL-OP-TARGET-FENCE-A",
+      commitOutcome: "UNKNOWN",
+    }))
+    expect(opA.code).toBe("INSTALL-HOLD-OPERATION-UNKNOWN")
+    expect(opA.effect).toBe("NONE")
+    expect(target.snapshot().installReceipts).toHaveLength(1)
+
+    const opBInput = installInput(target, candidateB, {
+      operationId: "TEST-INSTALL-OP-TARGET-FENCE-B",
+      commitOutcome: "COMMIT",
+    })
+    const blockedB = installRestartCandidate(target, opBInput)
+
+    expect(blockedB.code).toBe("INSTALL-HOLD-OPERATION-UNKNOWN")
+    expect(blockedB.effect).toBe("NONE")
+    expect(blockedB.receipt?.operationId).toBe("TEST-INSTALL-OP-TARGET-FENCE-A")
+    expect(target.snapshot().currentState).toEqual(before.currentState)
+    expect(target.snapshot().installReceipts).toHaveLength(1)
+
+    const reconciledA = reconcileRestartInstall(target, {
+      operationId: "TEST-INSTALL-OP-TARGET-FENCE-A",
+      authoritativeDecision: "NOT_COMMITTED",
+      recordedAt: "2026-10-10T09:33:30Z",
+    })
+    expect(reconciledA.code).toBe("INSTALL-OK-RECONCILED-NOT-COMMITTED")
+    expect(reconciledA.effect).toBe("NONE")
+    expect(target.snapshot().installReceipts).toHaveLength(2)
+
+    const allowedB = installRestartCandidate(target, opBInput)
+    expect(allowedB.code).toBe("INSTALL-OK-INSTALLED")
+    expect(allowedB.effect).toBe("ENGINE_LOCAL")
+    expect(allowedB.target?.currentState).toEqual(candidateB.stateSnapshot)
+    expect(target.snapshot().installReceipts).toHaveLength(3)
+  })
+
+  it("RC-IG05 latest reconciled decision clears historical UNKNOWN from the target fence", async () => {
+    const candidateA = await promotedCandidate({ label: "LATEST-DECISION-A" })
+    const candidateB = await promotedCandidate({ label: "LATEST-DECISION-B" })
+    const target = freshTarget("TEST-RUNTIME-LATEST-DECISION")
+
+    installRestartCandidate(target, installInput(target, candidateA, {
+      operationId: "TEST-INSTALL-OP-LATEST-DECISION-A",
+      commitOutcome: "UNKNOWN",
+    }))
+    expect(reconcileRestartInstall(target, {
+      operationId: "TEST-INSTALL-OP-LATEST-DECISION-A",
+      authoritativeDecision: "NOT_COMMITTED",
+      recordedAt: "2026-10-10T09:33:45Z",
+    }).code).toBe("INSTALL-OK-RECONCILED-NOT-COMMITTED")
+
+    const result = installRestartCandidate(target, installInput(target, candidateB, {
+      operationId: "TEST-INSTALL-OP-LATEST-DECISION-B",
+      commitOutcome: "COMMIT",
+    }))
+    expect(result.code).toBe("INSTALL-OK-INSTALLED")
+    expect(result.effect).toBe("ENGINE_LOCAL")
+  })
+
   it("IGR-024 explicitly reconciles UNKNOWN to COMMITTED only while original expected state still holds", async () => {
     const candidate = await promotedCandidate({ label: "RECONCILE-COMMIT" })
     const target = freshTarget()
