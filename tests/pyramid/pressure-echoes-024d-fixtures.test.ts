@@ -3,6 +3,8 @@ import { createBaselineWaterState, totalWater, applyWaterCommand } from "../../s
 
 // PASS 024D: isolated, test-only paper-contract fixtures.
 // No environmental Echo runtime, novel physics, or canon promotion is implemented.
+// Gravity uses a test-local reference classifier; Ground and Light are synthetic objects.
+// Only Water checks call the existing production Water runtime.
 type GravityState = "STABLE" | "WEAKENED" | "CRITICAL" | "OFF"
 const classifyGravity = (integrity: number): GravityState => {
   if (!Number.isFinite(integrity) || integrity < 0 || integrity > 1) throw new RangeError("invalid integrity")
@@ -15,7 +17,7 @@ const baseDown = Object.freeze([0, -1, 0] as const)
 const gravitySnapshot = (integrity: number) => ({
   integrity, strength: integrity, state: classifyGravity(integrity), direction: baseDown,
 })
-describe("PASS 024D — source-locked Gravity Bed state fixtures", () => {
+describe("PASS 024D — test-local Gravity Bed reference classifier (not runtime)", () => {
   it.each([[0.90,"STABLE"],[0.85,"STABLE"],[0.70,"WEAKENED"],[0.50,"WEAKENED"],[0.30,"CRITICAL"],[0.01,"CRITICAL"],[0,"OFF"]] as const)(
     "classifies integrity %s as %s without changing local down", (n, expected) => {
       expect(gravitySnapshot(n)).toEqual({integrity:n,strength:n,state:expected,direction:baseDown})
@@ -42,7 +44,7 @@ describe("PASS 024D — existing Water runtime conservation controls", () => {
     expect(totalWater(result.state)).toBe(totalWater(initial))
   })
 })
-describe("PASS 024D — explicitly synthetic Ground and Light hold controls", () => {
+describe("PASS 024D — synthetic Ground and Light non-runtime hold controls", () => {
   it("Ground contact flag does not silently mutate Gravity Bed integrity", () => {
     const initial=Object.freeze({contact:true,gravityIntegrity:0.90,landAnchorPenetrated:false})
     const proposed={...initial,contact:false}
@@ -68,7 +70,7 @@ describe("PASS 024F — actual Water runtime replay and rejection", () => {
     expect(second.state).toEqual(first.state)
     expect(totalWater(first.state)).toBe(totalWater(initial))
   })
-  it("preserves state on an actual rejected runtime transfer", () => {
+  it("preserves Water pool quantities while recording a halted rejected transfer", () => {
     const initial = createBaselineWaterState(3)
     const result = applyWaterCommand(initial, {
       type: "TRANSFER", from: "groundwater", to: "lakePond", units: 1,
