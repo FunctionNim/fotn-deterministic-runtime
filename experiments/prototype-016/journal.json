@@ -1,0 +1,199 @@
+{
+  "sourceCommit": "e90abd050620c510b1c0deb720a69d1a18067402",
+  "capture": "disposable compiled native producer copy",
+  "journal": [
+    {
+      "seq": 1,
+      "kind": "EVENT_BATCH",
+      "args": {
+        "events": [
+          {
+            "eventId": "intent:observe-starter",
+            "type": "MemoryPropagated",
+            "resonance": "Stable",
+            "emotionalWeight": 0.2,
+            "propagationStrength": 0.15,
+            "affectedDistricts": [
+              "starter"
+            ],
+            "generatedAtTick": 0
+          }
+        ],
+        "ids": [
+          "intent:observe-starter"
+        ],
+        "memories": []
+      },
+      "beforeDigest": "5bfafa42e00771c9b94c2cc7e72666a30fd067f52e3ad78a55e650f63f90c5ea",
+      "afterDigest": "124f25885a0795200df481c80920b68521278203652891bf2a5495e368cac4c4",
+      "prev": "GENESIS:P013",
+      "hash": "6a1003cb8bc2554d67734381737f59a8f057fa18ae24e6e08325d8c33df15a55"
+    },
+    {
+      "seq": 2,
+      "kind": "FUNCTION_BOX",
+      "args": {
+        "slot": 0
+      },
+      "beforeDigest": "124f25885a0795200df481c80920b68521278203652891bf2a5495e368cac4c4",
+      "afterDigest": "ea0308a9b537d772b3e4e688e6b96eb27f8d38303dcbae71a4a09cfa88789266",
+      "prev": "6a1003cb8bc2554d67734381737f59a8f057fa18ae24e6e08325d8c33df15a55",
+      "hash": "caaa6b81c53da3f90b704f46d557d344d330d768f6b9ddc5cdb8bb97082ba4ad"
+    },
+    {
+      "seq": 3,
+      "kind": "ENCOUNTER_ESCALATE",
+      "args": {
+        "tick": 1
+      },
+      "beforeDigest": "ea0308a9b537d772b3e4e688e6b96eb27f8d38303dcbae71a4a09cfa88789266",
+      "afterDigest": "52d1054eb8933c2037e7c91aa1f38d04c9c1d780372ec81bc67098aa6eefbb72",
+      "prev": "caaa6b81c53da3f90b704f46d557d344d330d768f6b9ddc5cdb8bb97082ba4ad",
+      "hash": "08249e0282b63d8abb494e79ab137f0f43c1a52c2007872008ac4be51e961b53"
+    },
+    {
+      "seq": 4,
+      "kind": "ENCOUNTER_STABILIZE",
+      "args": {
+        "amount": 0.6
+      },
+      "beforeDigest": "52d1054eb8933c2037e7c91aa1f38d04c9c1d780372ec81bc67098aa6eefbb72",
+      "afterDigest": "2b3e1df43167d19785565801fd6e09f59114f0590722e62719c1b03ab7810dc8",
+      "prev": "08249e0282b63d8abb494e79ab137f0f43c1a52c2007872008ac4be51e961b53",
+      "hash": "646da99247f913a1907606e9ff2db043726baa47e2b24e6eb59fbc904c03a988"
+    },
+    {
+      "seq": 5,
+      "kind": "EVENT_BATCH",
+      "args": {
+        "events": [
+          {
+            "eventId": "encounter:pressure_alpha:resolved:2",
+            "type": "EncounterResolved",
+            "resonance": "Restoring",
+            "emotionalWeight": 0.51,
+            "propagationStrength": 0.7,
+            "affectedDistricts": [
+              "starter"
+            ],
+            "generatedAtTick": 2
+          }
+        ],
+        "ids": [
+          "encounter:pressure_alpha:resolved:2"
+        ],
+        "memories": [
+          {
+            "recordId": "memory:encounter:pressure_alpha:resolved:2",
+            "type": "EncounterResolved",
+            "historicalWeight": 0.605,
+            "influencedDistricts": [
+              "starter"
+            ],
+            "emotionalResonance": {
+              "emotionalWeight": 0.51,
+              "resonanceType": "Restoring"
+            }
+          }
+        ]
+      },
+      "beforeDigest": "2b3e1df43167d19785565801fd6e09f59114f0590722e62719c1b03ab7810dc8",
+      "afterDigest": "46e8ee0d93755cb87a4eae521edadfd5c68e48a4d2eef34cd9c60c90738e173f",
+      "prev": "646da99247f913a1907606e9ff2db043726baa47e2b24e6eb59fbc904c03a988",
+      "hash": "2bd67c6550c7b6e60b368a06bbb08ba163a3e43caa4ad11089da3596c90e23d2"
+    },
+    {
+      "seq": 6,
+      "kind": "TEA_RITUAL",
+      "args": {
+        "enabled": true
+      },
+      "beforeDigest": "46e8ee0d93755cb87a4eae521edadfd5c68e48a4d2eef34cd9c60c90738e173f",
+      "afterDigest": "df4062e75fb61143714a9cde33ea41cf0bc83c9085c68f1effdacb0861c5f165",
+      "prev": "2bd67c6550c7b6e60b368a06bbb08ba163a3e43caa4ad11089da3596c90e23d2",
+      "hash": "4a0460c2fa477653e004124c69f6c46218433fd47a5c529c30fcdf3e70b6674b"
+    },
+    {
+      "seq": 7,
+      "kind": "EVENT_BATCH",
+      "args": {
+        "events": [
+          {
+            "eventId": "intent:restore-after-pressure",
+            "type": "RestorationApplied",
+            "resonance": "Restoring",
+            "emotionalWeight": 0.6,
+            "propagationStrength": 0.5,
+            "affectedDistricts": [
+              "starter"
+            ],
+            "generatedAtTick": 3
+          }
+        ],
+        "ids": [
+          "intent:restore-after-pressure"
+        ],
+        "memories": [
+          {
+            "recordId": "memory:intent:restore-after-pressure",
+            "type": "RestorationApplied",
+            "historicalWeight": 0.55,
+            "influencedDistricts": [
+              "starter"
+            ],
+            "emotionalResonance": {
+              "emotionalWeight": 0.6,
+              "resonanceType": "Restoring"
+            }
+          }
+        ]
+      },
+      "beforeDigest": "df4062e75fb61143714a9cde33ea41cf0bc83c9085c68f1effdacb0861c5f165",
+      "afterDigest": "1b3c2d2de8a86520ce30a9efff0252bb9dd05a3edef10cf27ad7d31bb4a675d5",
+      "prev": "4a0460c2fa477653e004124c69f6c46218433fd47a5c529c30fcdf3e70b6674b",
+      "hash": "b5a9a95f66ec64b0b6aa2c876dbf0d34781918249cbfa33043bb85656ecc26fb"
+    },
+    {
+      "seq": 8,
+      "kind": "HEARTBEAT",
+      "args": {},
+      "beforeDigest": "1b3c2d2de8a86520ce30a9efff0252bb9dd05a3edef10cf27ad7d31bb4a675d5",
+      "afterDigest": "832be72d43722522772bf93beb4744e07c953909d6b29751dc60fd9225a132a3",
+      "prev": "b5a9a95f66ec64b0b6aa2c876dbf0d34781918249cbfa33043bb85656ecc26fb",
+      "hash": "03df83679cf45a53b9b74ce44a4c3da3eebed97673aa7e7a5940c3a4beffb32a"
+    },
+    {
+      "seq": 9,
+      "kind": "DISTRICT_UPDATE",
+      "args": {},
+      "beforeDigest": "832be72d43722522772bf93beb4744e07c953909d6b29751dc60fd9225a132a3",
+      "afterDigest": "206d9c3637bbf0916cf98ba10f0d8a978d2636102f952d00d27365f2f5a929f4",
+      "prev": "03df83679cf45a53b9b74ce44a4c3da3eebed97673aa7e7a5940c3a4beffb32a",
+      "hash": "10a3b36d454c792254dbf9a981e974f35ef0b9daeb8ef16b1333af87654e5e99"
+    },
+    {
+      "seq": 10,
+      "kind": "EVENT_BATCH",
+      "args": {
+        "events": [],
+        "ids": [],
+        "memories": []
+      },
+      "beforeDigest": "206d9c3637bbf0916cf98ba10f0d8a978d2636102f952d00d27365f2f5a929f4",
+      "afterDigest": "206d9c3637bbf0916cf98ba10f0d8a978d2636102f952d00d27365f2f5a929f4",
+      "prev": "10a3b36d454c792254dbf9a981e974f35ef0b9daeb8ef16b1333af87654e5e99",
+      "hash": "baa0d75e201546deff6051c6ad312c88ed37ab0b21a9fb0b663ea39e2e6f511a"
+    }
+  ],
+  "anchor": "baa0d75e201546deff6051c6ad312c88ed37ab0b21a9fb0b663ea39e2e6f511a",
+  "originalFinalDigest": "206d9c3637bbf0916cf98ba10f0d8a978d2636102f952d00d27365f2f5a929f4",
+  "instrumentedFinalDigest": "206d9c3637bbf0916cf98ba10f0d8a978d2636102f952d00d27365f2f5a929f4",
+  "sameFinal": true,
+  "sameEventIds": true,
+  "chainValid": true,
+  "limitations": [
+    "Markers instrument six direct mutation sites; other nested mutations may occur within native calls",
+    "State replay from event-and-command journal has not been independently proven",
+    "Anchor stored outside AaronM required for external custody"
+  ]
+}
