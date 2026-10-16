@@ -1,0 +1,31 @@
+name: Prototype 016 — Public Experimental Journal Replay
+on:
+  push:
+    branches:
+      - prototype-015-cross-env-source-build-20261014
+    paths:
+      - '.github/workflows/prototype-016-replay.yml'
+      - 'experiments/prototype-016/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-replay:
+    name: FOTN P016 — Ubuntu Native Ten-Transition Replay
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GitHub-authenticated source and journal
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Clean install and source build
+        run: |
+          npm ci
+          npm run build
+      - name: Replay ten commands and check every digest
+        run: node experiments/prototype-016/replay-native.mjs
